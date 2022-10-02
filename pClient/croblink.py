@@ -154,6 +154,9 @@ class CMeasures:
         self.collision = False 
 
         self.lineSensorReady = False
+        
+        #USE STRING INSTEAD OF LIST
+        #self.lineSensor="0000000"
         self.lineSensor=["0" for i in range(NUM_LINE_ELEMENTS)]
 
         self.start = False 
@@ -260,7 +263,9 @@ class StructureHandler(sax.ContentHandler):
                 self.measures.gpsReady = False
         elif name == "LineSensor":
             self.measures.lineSensorReady = True
+            #print("AUASHODIJASIJDOIASJDIIOASD", type(attrs["Value"]))
             self.measures.lineSensor = list(attrs["Value"])
+            #self.measures.lineSensor = attrs["Value"]
         elif name == "Leds":
             self.measures.endLed = (attrs["EndLed"] == "On")
             self.measures.returningLed = (attrs["ReturningLed"] == "On")

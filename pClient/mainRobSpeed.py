@@ -6,10 +6,6 @@ import xml.etree.ElementTree as ET
 
 CELLROWS=7
 CELLCOLS=14
-lastLineSensors= ["0", "0", "0", "0", "0", "0", "0", "0"]
-back = False
-lastdecision = "NONE"
-
 class MyRob(CRobLinkAngs):
     def __init__(self, rob_name, rob_id, angles, host):
         CRobLinkAngs.__init__(self, rob_name, rob_id, angles, host)
@@ -67,12 +63,8 @@ class MyRob(CRobLinkAngs):
             
 
     def wander(self):
-        global lastLineSensors
-        global back
-        global lastdecision
         #print("LAST",lastLineSensors)
-        rightnoisecheck =0
-        leftnoisecheck = 0
+        
         #check if collision against wall
         center_id = 0
         left_id = 1
@@ -93,72 +85,45 @@ class MyRob(CRobLinkAngs):
         else:
         #########################################
             #print('Go')
-            # self.driveMotors(0.15,0.15)
+            #self.driveMotors(0.15,0.15)
             # self.driveMotors(0.15,0.15)
             #print(self.measures.lineSensor)
+            
             #locked in turn
             if all(x=="1" for x in self.measures.lineSensor):
                 print("locked in turn", self.measures.lineSensor)
-                lastdecision= "front"
                 self.driveMotors(0.15,0.15)
-                
                 
             #go back if no line detected
             elif all(x=="0" for x in self.measures.lineSensor):
-                back=True
                 print("go back", self.measures.lineSensor)
-                lastdecision= "back"
                 self.driveMotors(-0.15,-0.15)
             
             #turn left if left edge detected
             elif(self.measures.lineSensor[0]=="1"):
-                #print(back)
-                if (back or lastLineSensors[0]=="1") and lastdecision!="right":
-                    print("turn left", self.measures.lineSensor)
-                    lastdecision="left"
-                    self.driveMotors(-0.15,0.15)
-                    
-                else :
-                    print("Ruido", self.measures.lineSensor)
-                    lastdecision="front"
-                    self.driveMotors(0.15,0.15)       
-         
+                print("turn left", self.measures.lineSensor)
+                self.driveMotors(-0.15,0.15)
+    
+                
             #turn right if right edge detected
             elif(self.measures.lineSensor[6]=="1"):
-                #print(back)
-                if (back or lastLineSensors[6]=="1") and lastdecision!="left":
-                    print("turn right", self.measures.lineSensor)
-                    lastdecision="right"
-                    self.driveMotors(0.15,-0.15)             
-                          
-                else :
-                    print("Ruido", self.measures.lineSensor)
-                    lastdecision="front"
-                    self.driveMotors(0.15,0.15)       
-
-
-            #turn slightly right if left edge detected
+                print("turn right", self.measures.lineSensor)
+                self.driveMotors(0.15,-0.15)
+            
+            #go front if 3 middle sensors detect line
+            elif (self.measures.lineSensor[2]=="1" and self.measures.lineSensor[3]=="1" and self.measures.lineSensor[4]=="1"):
+                print("go front", self.measures.lineSensor)
+                self.driveMotors(0.15,0.15)
+            
             elif(self.measures.lineSensor[5]=="1"):
-  
                 print("turn slightly right", self.measures.lineSensor)
-                lastdecision="slightright"
                 self.driveMotors(0.15,0.14)
   
             #turn slightly left if right edge detected
             elif(self.measures.lineSensor[1]=="1"):
-
                 print("turn slightly left", self.measures.lineSensor)
-                lastdecision="slightleft"
                 self.driveMotors(0.14,0.15)
-                
-               #go front if 3 middle sensors detect line
-            elif (self.measures.lineSensor[3]=="1"):
-                back=False
-                print("go front", self.measures.lineSensor)
-                lastdecision="front"
-                self.driveMotors(0.15,0.15)
             
-            lastLineSensors=self.measures.lineSensor
 
                 
                 

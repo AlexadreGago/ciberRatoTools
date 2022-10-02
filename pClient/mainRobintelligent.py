@@ -6,13 +6,22 @@ import xml.etree.ElementTree as ET
 
 CELLROWS=7
 CELLCOLS=14
-lastLineSensors= ["0", "0", "0", "0", "0", "0", "0", "0"]
-back = False
-lastdecision = "NONE"
 
+motorStrengthMap = {
+    "front": (0.15,0.15),
+    "frontslow": (0.05, 0.05),
+    "backward": (-0.15,-0.15),
+    "left": (-0.15,0.15),
+    "right": (0.15,-0.15),
+    "slightLeft": (0.13,0.15),
+    "slightRight": (0.15,0.13),
+    "stop": (0,0)
+}
+lastdecision = "stop"
 class MyRob(CRobLinkAngs):
     def __init__(self, rob_name, rob_id, angles, host):
         CRobLinkAngs.__init__(self, rob_name, rob_id, angles, host)
+        
 
     # In this map the center of cell (i,j), (i in 0..6, j in 0..13) is mapped to labMap[i*2][j*2].
     # to know if there is a wall on top of cell(i,j) (i in 0..5), check if the value of labMap[i*2+1][j*2] is space or not
@@ -65,14 +74,65 @@ class MyRob(CRobLinkAngs):
                     self.setReturningLed(False)
                 self.wander()
             
+    def move(self, direction):
+        global lastdecision
+      
+        #try to prevent looping between front and back
+        if lastdecision == "back" and direction != "back":
+            self.driveMotors(motorStrengthMap["frontslow"][0],motorStrengthMap["frontslow"][1])
+            lastdecision = "front"
+            
+            print("%20s" % ("Anti front/back loop"), self.measures.lineSensor)
+            
+            return
+        
+        #when stuck in a turn turning left and right, go a bit forward
+        if  (direction == "left" or direction == "right"):
+            if lastdecision == "left" or lastdecision == "right":
+                if direction != lastdecision:
+                    self.driveMotors(motorStrengthMap["frontslow"][0], motorStrengthMap["frontslow"][1])
+                    lastdecision = "front"
+                   
+                    print("%20s" % ("Anti left/right loop"), self.measures.lineSensor)
+                    
+                
+                #after noise prevention, turn left or right
+                else:
+                    self.driveMotors(motorStrengthMap[direction][0], motorStrengthMap[direction][1])
+                    lastdecision = direction
+                    
+                    print("%20s" % ("Turn "+ direction +"no noise"), self.measures.lineSensor)
+                    
+            else:
+                #try to detect certain intersection, else assume its noise
+                if  ( direction == "left" and (self.measures.lineSensor[:2].count("1") == 2) ) or ( direction == "right" and (self.measures.lineSensor[5:].count("1") == 2) ):
+                    self.driveMotors(motorStrengthMap[direction][0], motorStrengthMap[direction][1])
+                    lastdecision = direction
+                    
+                    print("%20s" % ("Turn "+ direction + " certain"), self.measures.lineSensor)
+                   
+                else:
+                #noise prevention
+                    print("%20s" % ("Noise Prevention"), self.measures.lineSensor)
+                    self.driveMotors(motorStrengthMap["front"][0], motorStrengthMap["front"][1])
+                    lastdecision = direction
+    
+        
+        else:
+            print("%20s" % ("Turn "+ direction), self.measures.lineSensor)
+            self.driveMotors(motorStrengthMap[direction][0], motorStrengthMap[direction][1])
+            lastdecision = direction
+    
+        
+        
+        # lastLineSensors=self.measures.lineSensor
+        # lastdecision=direction
+        # self.driveMotors(motorStrengthMap[direction][0], motorStrengthMap[direction][1])
+        
 
     def wander(self):
-        global lastLineSensors
-        global back
-        global lastdecision
         #print("LAST",lastLineSensors)
-        rightnoisecheck =0
-        leftnoisecheck = 0
+        
         #check if collision against wall
         center_id = 0
         left_id = 1
@@ -92,77 +152,49 @@ class MyRob(CRobLinkAngs):
             self.driveMotors(0.0,0.1)
         else:
         #########################################
-            #print('Go')
-            # self.driveMotors(0.15,0.15)
-            # self.driveMotors(0.15,0.15)
-            #print(self.measures.lineSensor)
+            
             #locked in turn
-            if all(x=="1" for x in self.measures.lineSensor):
-                print("locked in turn", self.measures.lineSensor)
-                lastdecision= "front"
-                self.driveMotors(0.15,0.15)
+            #if all 7 sensors report "1"
+            if self.measures.lineSensor == ["1","1","1","1","1","1","1"]:
                 
+                self.move("front")
                 
             #go back if no line detected
-            elif all(x=="0" for x in self.measures.lineSensor):
-                back=True
-                print("go back", self.measures.lineSensor)
-                lastdecision= "back"
-                self.driveMotors(-0.15,-0.15)
+            elif self.measures.lineSensor == ["0","0","0","0","0","0","0"]:
+               
+                self.move("backward")
             
-            #turn left if left edge detected
-            elif(self.measures.lineSensor[0]=="1"):
-                #print(back)
-                if (back or lastLineSensors[0]=="1") and lastdecision!="right":
-                    print("turn left", self.measures.lineSensor)
-                    lastdecision="left"
-                    self.driveMotors(-0.15,0.15)
-                    
-                else :
-                    print("Ruido", self.measures.lineSensor)
-                    lastdecision="front"
-                    self.driveMotors(0.15,0.15)       
-         
-            #turn right if right edge detected
-            elif(self.measures.lineSensor[6]=="1"):
-                #print(back)
-                if (back or lastLineSensors[6]=="1") and lastdecision!="left":
-                    print("turn right", self.measures.lineSensor)
-                    lastdecision="right"
-                    self.driveMotors(0.15,-0.15)             
-                          
-                else :
-                    print("Ruido", self.measures.lineSensor)
-                    lastdecision="front"
-                    self.driveMotors(0.15,0.15)       
-
-
-            #turn slightly right if left edge detected
+            #turn left if the leftmost sensor detects a line
+            # (self.measures.lineSensor[:3].count("1") >= 2) and 
+            
+            elif(self.measures.lineSensor[0] == "1") :
+                
+                self.move("left")
+                
+            #turn right if the rightmost sensor detects a line
+            elif(self.measures.lineSensor[6] == "1"):
+                
+                self.move("right")
+        
+            
             elif(self.measures.lineSensor[5]=="1"):
-  
-                print("turn slightly right", self.measures.lineSensor)
-                lastdecision="slightright"
-                self.driveMotors(0.15,0.14)
+               
+                self.move("slightRight")
   
             #turn slightly left if right edge detected
             elif(self.measures.lineSensor[1]=="1"):
-
-                print("turn slightly left", self.measures.lineSensor)
-                lastdecision="slightleft"
-                self.driveMotors(0.14,0.15)
                 
-               #go front if 3 middle sensors detect line
-            elif (self.measures.lineSensor[3]=="1"):
-                back=False
-                print("go front", self.measures.lineSensor)
-                lastdecision="front"
-                self.driveMotors(0.15,0.15)
-            
-            lastLineSensors=self.measures.lineSensor
+                self.move("slightLeft")
+                
+            #go front if 3 middle sensors detect line
+            elif (self.measures.lineSensor[3]=="1") :
 
+                self.move("front")
+            else:
+                self.move("front")
                 
                 
-
+                
 
 class Map():
     def __init__(self, filename):
