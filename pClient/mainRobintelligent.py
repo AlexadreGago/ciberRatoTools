@@ -9,7 +9,7 @@ CELLCOLS=14
 
 motorStrengthMap = {
     "front": (0.15,0.15),
-    "frontslow": (0.05, 0.05),
+    "frontslow": (0.03, 0.03),
     "backward": (-0.15,-0.15),
     "left": (-0.15,0.15),
     "right": (0.15,-0.15),
@@ -78,13 +78,19 @@ class MyRob(CRobLinkAngs):
         global lastdecision
       
         #try to prevent looping between front and back
-        if lastdecision == "back" and direction != "back":
+        if lastdecision == "backward" and direction == "front":
             self.driveMotors(motorStrengthMap["frontslow"][0],motorStrengthMap["frontslow"][1])
             lastdecision = "front"
             
             print("%20s" % ("Anti front/back loop"), self.measures.lineSensor)
-            
             return
+        elif lastdecision == "backward" and (direction == "left" or direction == "right"):
+            self.driveMotors(motorStrengthMap[direction][0],motorStrengthMap[direction][1])
+            lastdecision = direction
+            print("%20s" % ("Anti front/back loop"), self.measures.lineSensor)
+            return
+            
+            
         
         #when stuck in a turn turning left and right, go a bit forward
         if  (direction == "left" or direction == "right"):
@@ -101,7 +107,7 @@ class MyRob(CRobLinkAngs):
                     self.driveMotors(motorStrengthMap[direction][0], motorStrengthMap[direction][1])
                     lastdecision = direction
                     
-                    print("%20s" % ("Turn "+ direction +"no noise"), self.measures.lineSensor)
+                    print("%20s" % ("Turn "+ direction +" no noise"), self.measures.lineSensor)
                     
             else:
                 #try to detect certain intersection, else assume its noise
@@ -113,9 +119,13 @@ class MyRob(CRobLinkAngs):
                    
                 else:
                 #noise prevention
-                    print("%20s" % ("Noise Prevention"), self.measures.lineSensor)
-                    self.driveMotors(motorStrengthMap["front"][0], motorStrengthMap["front"][1])
-                    lastdecision = direction
+                    if lastdecision == "backward" :
+                        self.driveMotors(motorStrengthMap["frontslow"][0], motorStrengthMap["frontslow"][1])
+                        print("%20s" % ("Back/Noise loop Prevention"), self.measures.lineSensor)
+                    else:
+                        print("%20s" % ("Noise Prevention"), self.measures.lineSensor)
+                        self.driveMotors(motorStrengthMap["front"][0], motorStrengthMap["front"][1])
+                        lastdecision = direction
     
         
         else:

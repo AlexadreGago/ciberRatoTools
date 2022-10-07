@@ -149,99 +149,26 @@ class MyRob(CRobLinkAngs):
             self.driveMotors(0.0,0.1)
         else:
         #########################################
-            
-            if turnRight and turnLeft:  
-                #TODO Decide
-                turnLeft=False
-                
-            elif turnRight :
-                print("TURN RIGHT")
-                print(self.measures.compass)
-                if direction == "left":          
-                    if not(self.measures.compass > 80 and self.measures.compass < 100):
-                        self.move("right")
-                    else:
-                        direction = "up"
-                        turnRight=False
-                        
-                elif direction == "right":
-                    print("pila")
-                    if not(self.measures.compass < -80 and self.measures.compass > -100):
-                        self.move("right")
-                        print("pila2")
-                        
-                    else:
-                        direction = "down"
-                        print("pila3")
-                        if count < 3:
-                            self.move("front")                      
-                            count+=1
-                        else:
-                            turnRight=False
-
-                        
-                elif direction == "down":
-                    if not(self.measures.compass > 170 and self.measures.compass < -170):
-                        self.move("right")
-                    else:
-                        direction = "left"
-                        turnRight=False
-                        
-                elif direction == "up":
-                    
-                    if not(self.measures.compass < 10 and self.measures.compass > -10):
-                        self.move("right")
-                    else:
-                        direction = "right"
-                        turnRight=False
-
-            elif turnLeft:
-                print("TURN left")
-                
-                if direction == "left":
-                         
-                    if not(self.measures.compass < -80 and self.measures.compass > -100):
-                        self.move("left")
-                    else:
-                        direction = "down"
-                        turnLeft=False
-                        
-                elif direction == "right":
-                    if not(self.measures.compass > 80 and self.measures.compass < 100):
-                        self.move("left")
-                    else:
-                        direction = "up"
-                        turnLeft=False
-                        
-                elif direction == "down":
-                    if not(self.measures.compass < 10 and self.measures.compass > -10):
-                        self.move("left")
-                    else:
-                        direction = "right"
-                        turnLeft=False
-                        
-                elif direction == "up":
-                    if not(self.measures.compass > 170 and self.measures.compass < -170):
-                        self.move("left")
-                    else:
-                        direction = "left"
-                        turnLeft=False
-
-
-            elif(self.measures.lineSensor[0]=="1"or self.measures.lineSensor[6]=="1") and (not turnRight or not turnLeft):
+            if(self.measures.lineSensor[0]=="1"or self.measures.lineSensor[6]=="1") and (not turnRight or not turnLeft):
                 v1 = checkNearVertex(self.measures.x,self.measures.y)
-                print(turnLeft)
-                print(turnRight)
 
                 if v1==None:  
                     #TODO ESTABILIZAR     
                     if(self.measures.lineSensor[0]=="1"):
-                        turnLeft=True
+                        for i in range(3):
+                            self.move("left")
+                            time.sleep(0.05)
+                        self.move("front")
+                        time.sleep(0.05)
+                        self.move("front")
                     if(self.measures.lineSensor[6]=="1"):
-                        turnRight=True
-                    print(turnLeft)
-                    print(turnRight)
-                    print("--------------------")
+                        for i in range(3):
+                            self.move("right")
+                            time.sleep(0.05)
+                        self.move("front")
+                        time.sleep(0.05)
+                        self.move("front")
+
                     count=0
                     v1 = vertex()
                     v1.x = self.measures.x
