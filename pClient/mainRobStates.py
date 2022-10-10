@@ -1,8 +1,6 @@
-
-
-from pickle import TRUE
 import sys
 import time
+import math
 from croblink import *
 from math import *
 import xml.etree.ElementTree as ET
@@ -11,18 +9,11 @@ CELLROWS=7
 CELLCOLS=14
 
 #GLOBAL VARS ########
-
-vCount = 0
-vertices = []
-turnLeft=0
-turnRight=0
-direction = "right"
-i =0
-count =0
-
+determined_vertex = 0
+aligning = True
 ############
 
-
+vertices = []
 motorStrengthMap = {
     "front": (0.15,0.15),
     "frontslow": (0.05, 0.05),
@@ -33,6 +24,15 @@ motorStrengthMap = {
     "slightRight": (0.15,0.13),
     "stop": (0,0)
 }
+
+directionMap = {
+    "right": 0,
+    "up": 90,
+    "left": -180,
+    "down": -90
+}
+    
+
 lastdecision = "stop"
 
 class vertex():
@@ -47,14 +47,29 @@ class vertex():
         self.left = 0
         
 
-def checkNearVertex(x,y):
-    return None
+
     
 
 
 class MyRob(CRobLinkAngs):
     def __init__(self, rob_name, rob_id, angles, host):
         CRobLinkAngs.__init__(self, rob_name, rob_id, angles, host)
+        
+        self.previouspowerLR = (0,0)
+       
+        self.decidedWay= None
+        self.prev_vertex = None
+        
+        
+        self.direction = "right"
+        
+        
+        self.detecting_vertex = False
+        self.nearvertex = 0
+        self.vertexList=[]
+        self.finished_turning = True
+        self.edges=[0,0,0,0]
+
 
     # In this map the center of cell (i,j), (i in 0..6, j in 0..13) is mapped to labMap[i*2][j*2].
     # to know if there is a wall on top of cell(i,j) (i in 0..5), check if the value of labMap[i*2+1][j*2] is space or not
@@ -92,7 +107,7 @@ class MyRob(CRobLinkAngs):
                     state='wait'
                 if self.measures.ground==0:
                     self.setVisitingLed(True);
-                self.wander()
+                self.wander()            
             elif state=='wait':
                 self.setReturningLed(True)
                 if self.measures.visitingLed==True:
@@ -118,23 +133,125 @@ class MyRob(CRobLinkAngs):
         # lastLineSensors=self.measures.lineSensor
         # lastdecision=direction
         # self.driveMotors(motorStrengthMap[direction][0], motorStrengthMap[direction][1])
-        
 
+    def orient(self, direction):
+        global directionMap
+        degrees = directionMap[direction]
+        #align to this number
+        degrees = 142
+        
+        
+        #angle difference between target and now
+        remaining = min(degrees-self.measures.compass, degrees-self.measures.compass+360, degrees-self.measures.compass-360, key=abs)
+        print("remaining: ", remaining, end = " ")
+        
+        #acceptable in this range
+        if abs(remaining) < 0.5:
+            return 1
+        
+    
+        #calculate power to give to motors, we'll give power to one motor and the symmetric to the other, depending on the angle
+        power = math.radians(remaining) -  (0.5 * self.previouspowerLR[1]) + (0.5 * self.previouspowerLR[0])
+        print("power: ", power, end = " ")
+        
+        #low max power to avoid overshooting by noise
+        if power > 0.07:
+            power = 0.07
+        elif power < -0.07:
+            power = -0.07
+        
+        # print("power: ", power, end = " ")
+        print("previouspowerLR: ", self.previouspowerLR)
+        
+        self.previouspowerLR = (-power, power)
+        self.driveMotors(-power, power)
+        
+        return 0
+
+            
+        
+    
+    def checkNearVertex(self):
+    #if any vertice is within 0.5m of the current position, return that vertex
+        for vertex in vertices:
+            if (vertex.x - self.measures.x)**2 + (vertex.y - self.measures.y)**2 < 0.25:
+                return vertex
+        return None
+    
+    def DetectVertex(self): # check if the rebot is near a vertex(not created yet)
+        
+        global determined_vertex # check if done orienting
+        determined_vertex = self.orient(self.direction)
+        
+        if determined_vertex==0:
+            #Continue deciding
+            self.edges[1]=1 #(example)
+            return 0
+        
+        elif determined_vertex==1:
+            self.CreateVertex(self.measures.x,self.measures.y, self.edges)
+            self.detecting_vertex = False # this is to escape the loop
+            return 1
+        
+        elif determined_vertex==2:
+            self.detecting_vertex = False # this is to escape the loop
+            return
+    
+    def CreateVertex(self,x,y,edges):
+        
+        v1 = vertex()
+        v1.x = x
+        v1.y=y
+        v1.up = edges[0]
+        v1.right = edges[1]
+        v1.down = edges[2]
+        v1.left = edges[3]
+        
+        self.vertexList.append(v1)
+        return 
+    
+    def Decide(v1,direction):
+        
+        if v1.up == 1 and direction != "up" and direction != "down":
+            return "up"
+        elif v1.right == 1 and direction != "right" and direction != "left":
+            return "right"
+        elif v1.down == 1 and direction != "down" and direction != "up":
+            return "down"
+        elif v1.left == 1 and direction != "left" and direction != "right":
+            return "left"
+    
+        elif v1.up == 2  and direction != "up" and direction != "down":
+            return "up"
+        elif v1.right == 2 and direction != "right" and direction != "left":
+            return "right"
+        elif v1.down == 2 and direction != "down" and direction != "up":
+            return "down"
+        elif v1.left == 2 and direction != "left" and direction != "right":
+            return "left"
+        
+        else:
+            return direction
+        
+    
+    def Turn(self,direction):
+    
+        
+        #when done
+        
+        self.finished_turning = True
+        return False
+    
+    
+    
     def wander(self):
-        
-        global turnRight
-        global turnLeft
-        global count
-        global direction
-        
-        global i
-        #print("LAST",lastLineSensors)
+    
         
         #check if collision against wall
         center_id = 0
-        left_id = 1
-        right_id = 2
-        back_id = 3
+        left_id   = 1
+        right_id  = 2
+        back_id   = 3
         if    self.measures.irSensor[center_id] > 5.0\
            or self.measures.irSensor[left_id]   > 5.0\
            or self.measures.irSensor[right_id]  > 5.0\
@@ -147,40 +264,13 @@ class MyRob(CRobLinkAngs):
         elif self.measures.irSensor[right_id]> 2.7:
             print('Rotate slowly left')
             self.driveMotors(0.0,0.1)
-        else:
         #########################################
-            if(self.measures.lineSensor[0]=="1"or self.measures.lineSensor[6]=="1") and (not turnRight or not turnLeft):
-                v1 = checkNearVertex(self.measures.x,self.measures.y)
-
-                if v1==None:  
-                    #TODO ESTABILIZAR     
-                    if(self.measures.lineSensor[0]=="1"):
-                        for i in range(3):
-                            self.move("left")
-                            time.sleep(0.05)
-                        self.move("front")
-                        time.sleep(0.05)
-                        self.move("front")
-                    if(self.measures.lineSensor[6]=="1"):
-                        for i in range(3):
-                            self.move("right")
-                            time.sleep(0.05)
-                        self.move("front")
-                        time.sleep(0.05)
-                        self.move("front")
-
-                    count=0
-                    v1 = vertex()
-                    v1.x = self.measures.x
-                    v1.y = self.measures.y
-                    vertices.append(v1)    
-
+            
+        else:
+            
+                    
+                    
                 
-            elif self.measures.lineSensor == ["0","0","0","0","0","0","0"]:
-                #print("%20s" % ("Line lost go back"), self.measures.lineSensor)
-                self.move("backward")
-            else:
-                self.move("front")
           
 
                 

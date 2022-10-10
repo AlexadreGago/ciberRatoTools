@@ -41,6 +41,7 @@ class MyRob(CRobLinkAngs):
         stopped_state = 'run'
 
         while True:
+            #print("State: ", state)
             self.readSensors()
 
             if self.measures.endLed:
@@ -76,7 +77,7 @@ class MyRob(CRobLinkAngs):
             
     def move(self, direction):
         global lastdecision
-      
+        print(self.measures.compass)
         #try to prevent looping between front and back
         if lastdecision == "backward" and direction == "front":
             self.driveMotors(motorStrengthMap["frontslow"][0],motorStrengthMap["frontslow"][1])
