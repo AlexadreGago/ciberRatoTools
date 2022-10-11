@@ -15,7 +15,7 @@ count=0
 ############
 
 motorStrengthMap = {
-    "front": (0.1,0.1),
+    "front": (0.05,0.05),
     "frontslow": (0.05, 0.05),
     "backward": (-0.05,-0.05),
     "left": (-0.15,0.15),
@@ -41,10 +41,11 @@ class Vertex():
         self.x = -1
         self.y = -1
         # 0 unknown; 1 exists but unexplred ; 2 -Exists and explored ; 3- Unexistant;
-        self.up = 0
-        self.right = 0
-        self.down = 0
-        self.left = 0
+        self.edges = {"up" : 0, 
+                 "down" : 0, 
+                 "left" : 0, 
+                 "right" : 0}
+        
         
 
 
@@ -57,16 +58,13 @@ class MyRob(CRobLinkAngs):
         
         self.previouspowerLR = (0,0)
         self.turnpoint = None
-        self.decidedWay= None
-        self.prev_vertex = None
+        self.currentVertex = None
         
         self.direction = "right"
         self.state = 'stop'
-        self.detecting_vertex = False
-        self.nearvertex = 0
+
         self.vertexList=[]
 
-        self.edges=[0,0,0,0]
 
 
     # In this map the center of cell (i,j), (i in 0..6, j in 0..13) is mapped to labMap[i*2][j*2].
@@ -123,6 +121,8 @@ class MyRob(CRobLinkAngs):
                 if self.measures.returningLed==True:
                     self.state='return'
                 self.driveMotors(0.0,0.0)
+            elif self.state == 'decision':
+                self.Decide()
             elif self.state=='return':
                 if self.measures.visitingLed==True:
                     self.setVisitingLed(False)
@@ -132,19 +132,23 @@ class MyRob(CRobLinkAngs):
             
     def vertexDiscovery(self):
         #print("VertexDicovery")
-        if self.orient(self.direction) == 1:
+        
+        #if it isnt oriented, it will orient itself each call as the state isn´t changed
+        isoriented = self.orient(self.direction)
+        if isoriented == 1:
 
+            #check if the vertex already exists, if it doesn´t, detect it and create it, if None is returned must have been a mistake
             vertex = self.checkNearVertex()
-            self.vertexList.append(vertex) if vertex not in self.vertexList else None
-            
-            if vertex != None:
-                self.direction = self.Decide(vertex)
-               
-                self.turnpoint= [self.measures.x + 0.438 * math.cos(math.radians(self.measures.compass)), self.measures.y + 0.438 * math.sin(math.radians(self.measures.compass))]
-                self.state = "orient"
+            if vertex:
+
+                self.state = "decision"
+                self.currentVertex = vertex
+                #self.turnpoint= [self.measures.x + 0.438 * math.cos(math.radians(self.measures.compass)), self.measures.y + 0.438 * math.sin(math.radians(self.measures.compass))]
+                self.turnpoint= [vertex.x, vertex.y]
                 
                 
             else :# IF NO VERTEX IS DETECTED
+                print("must have been the wind ", self.measures.lineSensor)
                 self.state = "return"
 
     
@@ -152,117 +156,120 @@ class MyRob(CRobLinkAngs):
         #if any vertice is within 0.5m of the current position, return that vertex
         #print("checkNearVertex")
         for vertex in vertices:
-            if (vertex.x - self.measures.x)**2 + (vertex.y - self.measures.y)**2 < 0.25:
+            #distance formula 
+            if (vertex.x - (self.measures.x + (0.438 * math.cos(math.radians(self.measures.compass))))**2 + (vertex.y - (self.measures.y + (0.438 * math.sin(math.radians(self.measures.compass)))))**2) < 0.25:
                 print("Found vertex")
                 return vertex
+        #if vertex is not found nearby, must be a new one
         return self.detectVertex()
             
     def detectVertex(self):
         #print("detectVertex")
-        vertex = Vertex()
-        
+       
         if self.measures.lineSensor[0] == "1" or self.measures.lineSensor[6] == "1":
-            vertex.x= self.measures.x
-            vertex.y= self.measures.y
+            vertex = Vertex()
+            #offset vertex position because of the center of the robot
+            vertex.x= self.measures.x + (0.438 * math.cos(math.radians(self.measures.compass)))
+            vertex.y= self.measures.y + (0.438 * math.sin(math.radians(self.measures.compass)))
             
             if self.direction == "right":
                 if self.measures.lineSensor[0] == "1":
-                    vertex.up = 1
+                    vertex.edges["up"] = 1
                 if self.measures.lineSensor[6] == "1":
-                    vertex.down = 1
+                    vertex.edges["down"] = 1
                 
-                #TODO change passinho a frente passinho atras
-                vertex.right = 2
                 #explored we just came from there
-                vertex.left = 2
+                vertex.edges["left"] = 2
                 
             elif self.direction == "left":
                 if self.measures.lineSensor[0] == "1":
-                    vertex.down = 1    
+                    vertex.edges["down"] = 1    
                 if self.measures.lineSensor[6] == "1":
-                    vertex.up = 1
-                    
-                vertex.right = 2
-                vertex.left = 2
+                    vertex.edges["up"] = 1
+                
+                #explored we just came from there    
+                vertex.edges["right"] = 2
+    
             
             elif self.direction == "up":
                 
                 if self.measures.lineSensor[0] == "1":
-                    vertex.left = 1
+                    vertex.edges["left"] = 1
                 if self.measures.lineSensor[6] == "1":
-                    vertex.right = 1
+                    vertex.edges["right"] = 1
                     
-                vertex.up = 2
-                vertex.down = 2
+                #explored we just came from there
+                vertex.edges["down"] = 2
             
             elif self.direction == "down":
                 if self.measures.lineSensor[0] == "1":
-                    vertex.right = 1
+                    vertex.edges["right"] = 1
                 if self.measures.lineSensor[6] == "1":
-                    vertex.left = 1
-                    
-                vertex.up = 2
-                vertex.down = 2
+                    vertex.edges["left"] = 1
                 
+                #explored we just came from there         
+                vertex.edges["up"] = 2
+    
             return vertex
         return None
-
-
 
     def move(self, direction, compensate = None):
         global lastdecision
         self.driveMotors(motorStrengthMap[direction][0], motorStrengthMap[direction][1])
         
     def adjustForward(self):
-        if self.turnpoint:
-            distance = math.sqrt((self.turnpoint[0] - self.measures.x)**2 + (self.turnpoint[1] - self.measures.y)**2)
-            #print(distance)
-            if distance < 0.2:
-                self.turnpoint = None
 
+        distance = math.sqrt((self.turnpoint[0] - self.measures.x)**2 + (self.turnpoint[1] - self.measures.y)**2)
+        #print(distance)
+        if distance < 0.05:
+            self.turnpoint = None
+            
+            #check if has path forward of the vertex, update the vertex 
+            if (self.measures.lineSensor[3] == "1"):
+                self.currentVertex.edges[self.direction] = 1
                 return 1
-            if distance > 0.05:
-                distance = 0.05
-            self.driveMotors(distance, distance)
-            return 0
-        return 1
+            return 1
+        
+        if distance > 0.03:
+            distance = 0.03
+        self.driveMotors(distance, distance)
+        return 0
     
     def orient(self, direction):
-        print("orient ", direction)
+        print("orient ", direction, " ", self.measures.compass)
         #TODO think about this
-        bol = self.adjustForward() 
-        if bol:
-            
-            global directionMap
-            degrees = directionMap[direction]
-            #align to this number
-            
-            
-            #angle difference between target and now
-            remaining = min(degrees-self.measures.compass, degrees-self.measures.compass+360, degrees-self.measures.compass-360, key=abs)
-            #print("remaining: ", remaining, end = " ")
-            
-            #acceptable in this range
-            if abs(remaining) < 2:
-                return 1
-            
-            #calculate power to give to motors, we'll give power to one motor and the symmetric to the other, depending on the angle
-            power = math.radians(remaining) -  (0.5 * self.previouspowerLR[1]) + (0.5 * self.previouspowerLR[0])
-            #print("power: ", power, end = " ")
-            
-            #low max power to avoid overshooting by noise
-            if power > 0.07:
-                power = 0.07
-            elif power < -0.07:
-                power = -0.07
-            
-            # print("power: ", power, end = " ")
-            #print("previouspowerLR: ", self.previouspowerLR)
-            
-            self.previouspowerLR = (-power, power)
-            self.driveMotors(-power, power)
-            
-            return 0
+        
+        global directionMap
+        degrees = directionMap[direction]
+        #align to this number
+        
+        
+        #angle difference between target and now
+        remaining = min(degrees-self.measures.compass, degrees-self.measures.compass+360, degrees-self.measures.compass-360, key=abs)
+        #print("remaining: ", remaining, end = " ")
+        
+        #acceptable in this range
+        if abs(remaining) <= 1:
+            self.move("front")
+            return 1
+        
+        #calculate power to give to motors, we'll give power to one motor and the symmetric to the other, depending on the angle
+        power = math.radians(remaining) -  (0.5 * self.previouspowerLR[1]) + (0.5 * self.previouspowerLR[0])
+        #print("power: ", power, end = " ")
+        
+        #low max power to avoid overshooting by noise
+        if power > 0.04:
+            power = 0.04
+        elif power < -0.04:
+            power = -0.04
+        
+        # print("power: ", power, end = " ")
+        #print("previouspowerLR: ", self.previouspowerLR)
+        
+        self.previouspowerLR = (-power, power)
+        self.driveMotors(-power, power)
+        
+        return 0
     
     def CreateVertex(self,x,y,edges):
         
@@ -277,25 +284,40 @@ class MyRob(CRobLinkAngs):
         self.vertexList.append(v1)
         return v1
     
-    def Decide(self,v1):
-        print("Decide")
-        print("v1: ", v1.up, v1.right, v1.down, v1.left)
-        if v1.down == 1:
-            v1.down = 2
-            return "down"
-        elif v1.right == 1:
-            v1.right = 2
-            return "right"
-        elif v1.up == 1:
-            v1.up = 2
-            return "up"
-        elif v1.left == 1:
-            v1.left = 2
-            return "left"
-        
-        else:
-            #!default if all explored
-            return "right"
+    def Decide(self):
+       
+        bol = self.adjustForward()
+        if bol == 1 :
+            
+            self.state = "orient"
+            print("Decide")
+            print("v1: ", self.currentVertex.edges,)
+            
+            decision = ""
+            if self.currentVertex.edges["down"] == 1:
+                self.currentVertex.edges["down"] = 2
+                
+                decision="down"
+                
+            elif self.currentVertex.edges["right"]== 1:
+                self.currentVertex.edges["right"] = 2
+                decision="right"
+            elif self.currentVertex.edges["up"]== 1:
+                self.currentVertex.edges["up"] = 2
+                decision="up"
+            elif self.currentVertex.edges["left"] == 1:
+                self.currentVertex.edges["left "] = 2
+                decision="left"
+
+            else:
+                #!default if all explored
+                print("default")
+                decision = "right"
+            
+            self.vertexList.append(self.currentVertex) if self.currentVertex not in self.vertexList else None
+    
+            self.direction = decision
+            self.currentVertex = None
         
     
     def wander(self):
@@ -322,69 +344,28 @@ class MyRob(CRobLinkAngs):
         else:
             #locked in turn
             #if all 7 sensors report "1"
-            if self.measures.lineSensor == ["1","1","1","1","1","1","1"]:
-                self.move("front")
+
                 
             #go back if no line detected
 
-            #if one of these sensors is "1" check if we´re near vertex  
-            elif(self.measures.lineSensor[0] == "1") or (self.measures.lineSensor[6] == "1") :
-                print("near vertex")
+            #if one of these sensors is "1" check if we´re near vertex
+            if((self.measures.lineSensor[:2].count("1") >= 2) or self.measures.lineSensor[5:7].count("1") >=2):
+                print("near vertex ", self.measures.lineSensor)
                 self.state="vertexDiscovery"
                 self.move("stop")
         
-            elif(self.measures.lineSensor[5]=="1"):
-                self.move("slightRight")
+            # elif(self.measures.lineSensor[5]=="1"):
+            #     self.move("slightRight")
 
-            #turn slightly left if right edge detected
-            elif(self.measures.lineSensor[1]=="1"):
-                self.move("slightLeft")
+            # #turn slightly left if right edge detected
+            # elif(self.measures.lineSensor[1]=="1"):
+            #     self.move("slightLeft")
                 
             #go front if 3 middle sensors detect line
             elif (self.measures.lineSensor[3]=="1") :
                 self.move("front")
             else:
                 self.move("front")
-            # v1 = self.checkNearVertex()
-            
-            # if v1 == None: # we are not near a vertex
-            #     if (self.measures.lineSensor[0]==1 or self.measures.lineSensor[6]==1) and self.finished_turning == True and not self.detecting_vertex: # if we detect a 1 in the first or last sensor,
-            #         self.edges=[0,0,0,0]                                              # we check if we are near a vertex or if it is a line
-            #         self.DetectVertex(self.measures.x,self.measures.y) # Find if it is near a vertex, if so create it in order to decice the way
-            #         self.detecting_vertex = True
-                        
-            #     elif self.detecting_vertex: # stay here until vertex is detected or rejected
-            #         self.nearvertex = self.DetectVertex(self.measures.x,self.measures.y)
-                    
-            #     else:# in case we are not near a vertex and no right or left sensor is at 1
-            #         self.normalMove()
-                    
-            # else: # In case the vertex is already created/exists
-                
-            #     if v1 != self.prev_vertex: # check if we are in a new vertex in order to make a decision and turn
-                    
-            #         if self.decidedWay ==None: # We first decide the way to take and then we move
-            #             self.decidedWay = self.Decide(v1,self.direction) # decidir o caminho a seguir tendo em conta a direçao atual
-            #             self.finished_turning=False
-                        
-            #         else:
-            #             self.finished_turning = self.Turn(self.decidedWay,self.direction)
-            #             if self.finished_turning :
-            #                 self.prev_vertex=v1 # para parar de virar e continuar a andar
-            #                 self.decidedWay == None
-                            
-            #     else: # if we still are near the same vertex (v1!=prev_vertex)
-            #         #FAZER O MESMO QUE O C1
-            #         self.normalMove()
-            
-                    
-                
-          
-
-                
-                
-
-
 class Map():
     def __init__(self, filename):
         tree = ET.parse(filename)
