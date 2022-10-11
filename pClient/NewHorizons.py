@@ -15,13 +15,13 @@ count=0
 ############
 
 motorStrengthMap = {
-    "front": (0.05,0.05),
+    "front": (0.1,0.1),
     "frontslow": (0.05, 0.05),
     "backward": (-0.05,-0.05),
     "left": (-0.15,0.15),
     "right": (0.15,-0.15),
-    "slightLeft": (0.13,0.15),
-    "slightRight": (0.15,0.13),
+    "slightLeft": (0.08,0.1),
+    "slightRight": (0.1,0.08),
     "stop": (0,0)
 }
 
@@ -221,7 +221,7 @@ class MyRob(CRobLinkAngs):
 
         distance = math.sqrt((self.turnpoint[0] - self.measures.x)**2 + (self.turnpoint[1] - self.measures.y)**2)
         #print(distance)
-        if distance < 0.05:
+        if distance < 0.1:
             self.turnpoint = None
             
             #check if has path forward of the vertex, update the vertex 
@@ -258,10 +258,10 @@ class MyRob(CRobLinkAngs):
         #print("power: ", power, end = " ")
         
         #low max power to avoid overshooting by noise
-        if power > 0.04:
-            power = 0.04
-        elif power < -0.04:
-            power = -0.04
+        if power > 0.07:
+            power = 0.07
+        elif power < -0.07:
+            power = -0.07
         
         # print("power: ", power, end = " ")
         #print("previouspowerLR: ", self.previouspowerLR)
@@ -354,12 +354,12 @@ class MyRob(CRobLinkAngs):
                 self.state="vertexDiscovery"
                 self.move("stop")
         
-            # elif(self.measures.lineSensor[5]=="1"):
-            #     self.move("slightRight")
+            elif(self.measures.lineSensor[5]=="1"):
+                self.move("slightRight")
 
-            # #turn slightly left if right edge detected
-            # elif(self.measures.lineSensor[1]=="1"):
-            #     self.move("slightLeft")
+            #turn slightly left if right edge detected
+            elif(self.measures.lineSensor[1]=="1"):
+                self.move("slightLeft")
                 
             #go front if 3 middle sensors detect line
             elif (self.measures.lineSensor[3]=="1") :
