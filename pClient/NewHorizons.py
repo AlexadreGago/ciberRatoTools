@@ -12,6 +12,7 @@ CELLCOLS=14
 determined_vertex = 0
 aligning = True
 count=0
+prevDistance=5
 ############
 
 motorStrengthMap = {
@@ -31,8 +32,7 @@ directionMap = {
     "left": -180,
     "down": -90
 }
-    
-vertices = []
+
 lastdecision = "stop"
 
 class Vertex():
@@ -132,7 +132,11 @@ class MyRob(CRobLinkAngs):
             
     def vertexDiscovery(self):
         #print("VertexDicovery")
-        
+        #-----------------------------
+        #Unrelated used in adjustForward
+        global prevDistance
+        prevDistance = 5
+        #-----------------------------
         #if it isnt oriented, it will orient itself each call as the state isn´t changed
         isoriented = self.orient(self.direction)
         if isoriented == 1:
@@ -155,11 +159,11 @@ class MyRob(CRobLinkAngs):
     def checkNearVertex(self):
         #if any vertice is within 0.5m of the current position, return that vertex
         #print("checkNearVertex")
-        for vertex in vertices:
+        for vertex in self.vertexList:
             #distance formula 
             if (vertex.x - (self.measures.x + (0.438 * math.cos(math.radians(self.measures.compass))))**2 + (vertex.y - (self.measures.y + (0.438 * math.sin(math.radians(self.measures.compass)))))**2) < 0.25:
                 print("Found vertex")
-                return vertex
+                #return vertex
         #if vertex is not found nearby, must be a new one
         return self.detectVertex()
             
@@ -218,25 +222,42 @@ class MyRob(CRobLinkAngs):
         self.driveMotors(motorStrengthMap[direction][0], motorStrengthMap[direction][1])
         
     def adjustForward(self):
-
+        global prevDistance
         distance = math.sqrt((self.turnpoint[0] - self.measures.x)**2 + (self.turnpoint[1] - self.measures.y)**2)
-        #print(distance)
-        if distance < 0.1:
+        dir = False
+        #prevent overshooting turnpoint
+        print(prevDistance, distance)
+        if prevDistance < distance:
+            self.turnpoint = None
+            dir = True
+            #check if has path forward of the vertex, update the vertex 
+            if (self.measures.lineSensor[3] == "1"):
+                self.currentVertex.edges[self.direction] = 1
+        
+        if distance < 0.0001:
             self.turnpoint = None
             
             #check if has path forward of the vertex, update the vertex 
             if (self.measures.lineSensor[3] == "1"):
+                dir = True
                 self.currentVertex.edges[self.direction] = 1
                 return 1
             return 1
         
+        prevDistance = distance
         if distance > 0.03:
             distance = 0.03
-        self.driveMotors(distance, distance)
+        if dir:
+            print("Go back")
+            self.driveMotors(-distance*2,-distance*2)
+            return 1
+        else:
+            print("DOne")
+            self.driveMotors(distance,distance)
         return 0
     
     def orient(self, direction):
-        print("orient ", direction, " ", self.measures.compass)
+        #print("orient ", direction, " ", self.measures.compass)
         #TODO think about this
         
         global directionMap
