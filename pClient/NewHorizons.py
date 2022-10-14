@@ -35,6 +35,11 @@ directionMap = {
 
 lastdecision = "stop"
 
+
+#round to nearest multiple of 2
+def roundcoord(x):
+    return int(round(x / 2.0)) * 2
+
 class Vertex():
     def __init__(self):
         self.explored = False
@@ -45,6 +50,7 @@ class Vertex():
                  "down" : 0, 
                  "left" : 0, 
                  "right" : 0}
+        self.connects = {}
         
         
 
@@ -68,6 +74,7 @@ class MyRob(CRobLinkAngs):
         self.prevVertex = [0, 0]
 
         self.initialPos = [0,0]
+        
 
 
     # In this map the center of cell (i,j), (i in 0..6, j in 0..13) is mapped to labMap[i*2][j*2].
@@ -165,8 +172,8 @@ class MyRob(CRobLinkAngs):
                 self.state = "return"
 
     def realposition(self):
-        return [ self.gps("x") + (0.5 * math.cos(math.radians(self.measures.compass))), self.gps("y") + (0.5 * math.sin(math.radians(self.measures.compass)))]
-    
+        #return [ self.gps("x") + (0.5 * math.cos(math.radians(self.measures.compass))), self.gps("y") + (0.5 * math.sin(math.radians(self.measures.compass)))]
+        return [ roundcoord(self.gps("x")), roundcoord(self.gps("y"))]
     def checkNearVertex(self):
         #if any vertice is within 0.5m of the current position, return that vertex
         for vertex in self.vertexList:
@@ -237,7 +244,7 @@ class MyRob(CRobLinkAngs):
         distance = math.sqrt((self.turnpoint[0] - self.gps("x"))**2 + (self.turnpoint[1] - self.gps("y"))**2)
         dir = 0
         #prevent overshooting turnpoint
-        print("AdjustForward",prevDistance, distance)
+        #print("AdjustForward",prevDistance, distance)
         if prevDistance < distance:
             self.turnpoint = None
             #check if has path forward of the vertex, update the vertex 
@@ -247,7 +254,7 @@ class MyRob(CRobLinkAngs):
             self.driveMotors(-distance,-distance)
             return 1
         
-        if distance < 0.0000005:
+        if distance < 0.0000008:
             self.turnpoint = None
             
             #check if has path forward of the vertex, update the vertex 
@@ -325,7 +332,6 @@ class MyRob(CRobLinkAngs):
             
             if self.currentVertex.edges["down"] == 1:
                 self.currentVertex.edges["down"] = 2
-                
                 decision="down"
             
             elif self.currentVertex.edges["right"]== 1:
@@ -400,6 +406,14 @@ class MyRob(CRobLinkAngs):
             #go front if 3 middle sensors detect line
             elif (self.measures.lineSensor[3]=="1") :
                 self.move("front")
+                
+            elif self.measures.lineSensor == ["0","0","0","0","0","0","0"]:
+                print("near vertex ", self.measures.lineSensor)
+                #TODO turn back
+                self.direction = "down"
+                self.state="orient"
+                self.move("stop")
+            
             else:
                 self.move("front")
 class Map():

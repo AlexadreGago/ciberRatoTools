@@ -46,4 +46,7 @@ y = 10
 compass = 0
 
 
+def roundcoord(num):
+    return (num + 2 - 1) & -2
+print(roundcoord(1011))
 
