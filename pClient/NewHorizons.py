@@ -64,7 +64,10 @@ class MyRob(CRobLinkAngs):
         self.state = 'stop'
 
         self.vertexList=[]
+        
+        self.prevVertex = [0, 0]
 
+        self.initialPos = [0,0]
 
 
     # In this map the center of cell (i,j), (i in 0..6, j in 0..13) is mapped to labMap[i*2][j*2].
@@ -83,11 +86,13 @@ class MyRob(CRobLinkAngs):
 
         
         stopped_state = 'run'
-       
+        self.readSensors()
+        self.initialPos = [self.measures.x, self.measures.y]
+        print("Initial position: ", self.initialPos)
         while True:
             #print(self.direction)
             self.readSensors()
-
+            
             if self.measures.endLed:
                 print(self.rob_name + " exiting")
                 quit()
@@ -129,7 +134,11 @@ class MyRob(CRobLinkAngs):
                 if self.measures.returningLed==True:
                     self.setReturningLed(False)
                 self.wander()
-            
+    
+    #offset gps with initialpos
+    def gps(self, dir):
+        return self.measures.x - self.initialPos[0] if dir == "x" else self.measures.y - self.initialPos[1]
+   
     def vertexDiscovery(self):
         #print("VertexDicovery")
         #-----------------------------
@@ -155,15 +164,17 @@ class MyRob(CRobLinkAngs):
                 print("must have been the wind ", self.measures.lineSensor)
                 self.state = "return"
 
+    def realposition(self):
+        return [ self.gps("x") + (0.5 * math.cos(math.radians(self.measures.compass))), self.gps("y") + (0.5 * math.sin(math.radians(self.measures.compass)))]
     
     def checkNearVertex(self):
         #if any vertice is within 0.5m of the current position, return that vertex
-        #print("checkNearVertex")
         for vertex in self.vertexList:
-            #distance formula 
-            if (vertex.x - (self.measures.x + (0.438 * math.cos(math.radians(self.measures.compass))))**2 + (vertex.y - (self.measures.y + (0.438 * math.sin(math.radians(self.measures.compass)))))**2) < 0.25:
-                print("Found vertex")
-                #return vertex
+            #if distance of vertex to current position is less than 0.5m
+            realposition = self.realposition()
+            if sqrt((vertex.x - realposition[0])**2 + (vertex.y - realposition[1])**2) < 0.5:
+                print("Found vertex",vertex.x, vertex.y, "at", realposition[0], realposition[1])
+                return vertex
         #if vertex is not found nearby, must be a new one
         return self.detectVertex()
             
@@ -173,8 +184,8 @@ class MyRob(CRobLinkAngs):
         if self.measures.lineSensor[0] == "1" or self.measures.lineSensor[6] == "1":
             vertex = Vertex()
             #offset vertex position because of the center of the robot
-            vertex.x= self.measures.x + (0.438 * math.cos(math.radians(self.measures.compass)))
-            vertex.y= self.measures.y + (0.438 * math.sin(math.radians(self.measures.compass)))
+            vertex.x= self.gps("x") + (0.438 * math.cos(math.radians(self.measures.compass)))
+            vertex.y= self.gps("y") + (0.438 * math.sin(math.radians(self.measures.compass)))
             
             if self.direction == "right":
                 if self.measures.lineSensor[0] == "1":
@@ -223,38 +234,34 @@ class MyRob(CRobLinkAngs):
         
     def adjustForward(self):
         global prevDistance
-        distance = math.sqrt((self.turnpoint[0] - self.measures.x)**2 + (self.turnpoint[1] - self.measures.y)**2)
-        dir = False
+        distance = math.sqrt((self.turnpoint[0] - self.gps("x"))**2 + (self.turnpoint[1] - self.gps("y"))**2)
+        dir = 0
         #prevent overshooting turnpoint
-        print(prevDistance, distance)
+        print("AdjustForward",prevDistance, distance)
         if prevDistance < distance:
             self.turnpoint = None
-            dir = True
             #check if has path forward of the vertex, update the vertex 
             if (self.measures.lineSensor[3] == "1"):
                 self.currentVertex.edges[self.direction] = 1
+            print("Go back")
+            self.driveMotors(-distance,-distance)
+            return 1
         
-        if distance < 0.0001:
+        if distance < 0.0000005:
             self.turnpoint = None
             
             #check if has path forward of the vertex, update the vertex 
             if (self.measures.lineSensor[3] == "1"):
-                dir = True
                 self.currentVertex.edges[self.direction] = 1
-                return 1
             return 1
         
         prevDistance = distance
+        
         if distance > 0.03:
             distance = 0.03
-        if dir:
-            print("Go back")
-            self.driveMotors(-distance*2,-distance*2)
-            return 1
-        else:
-            print("DOne")
-            self.driveMotors(distance,distance)
+        self.driveMotors(distance,distance)
         return 0
+
     
     def orient(self, direction):
         #print("orient ", direction, " ", self.measures.compass)
@@ -315,17 +322,21 @@ class MyRob(CRobLinkAngs):
             print("v1: ", self.currentVertex.edges,)
             
             decision = ""
+            
             if self.currentVertex.edges["down"] == 1:
                 self.currentVertex.edges["down"] = 2
                 
                 decision="down"
-                
+            
             elif self.currentVertex.edges["right"]== 1:
                 self.currentVertex.edges["right"] = 2
                 decision="right"
+            
+            
             elif self.currentVertex.edges["up"]== 1:
                 self.currentVertex.edges["up"] = 2
                 decision="up"
+
             elif self.currentVertex.edges["left"] == 1:
                 self.currentVertex.edges["left "] = 2
                 decision="left"
@@ -336,10 +347,14 @@ class MyRob(CRobLinkAngs):
                 decision = "right"
             
             self.vertexList.append(self.currentVertex) if self.currentVertex not in self.vertexList else None
-    
+            #update vertex in the list
+            self.vertexList = [self.currentVertex if v.x == self.currentVertex.x and v.y == self.currentVertex.y else v for v in self.vertexList]
+
             self.direction = decision
+            self.prevVertex = self.currentVertex
             self.currentVertex = None
-        
+            #replace on the vertex list the vertex
+
     
     def wander(self):
     
@@ -366,7 +381,7 @@ class MyRob(CRobLinkAngs):
             #locked in turn
             #if all 7 sensors report "1"
 
-                
+            
             #go back if no line detected
 
             #if one of these sensors is "1" check if we´re near vertex
