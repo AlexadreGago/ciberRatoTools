@@ -13,6 +13,8 @@ determined_vertex = 0
 aligning = True
 count=0
 prevDistance=5
+once =0
+distance = 5
 ############
 
 motorStrengthMap = {
@@ -53,9 +55,6 @@ class Vertex():
         self.connects = {}
         
         
-
-
-    
 
 
 class MyRob(CRobLinkAngs):
@@ -164,7 +163,7 @@ class MyRob(CRobLinkAngs):
                 self.state = "decision"
                 self.currentVertex = vertex
                 #self.turnpoint= [self.measures.x + 0.438 * math.cos(math.radians(self.measures.compass)), self.measures.y + 0.438 * math.sin(math.radians(self.measures.compass))]
-                self.turnpoint= [vertex.x, vertex.y]
+                self.turnpoint= [(vertex.x), (vertex.y)]
                 
                 
             else :# IF NO VERTEX IS DETECTED
@@ -179,9 +178,29 @@ class MyRob(CRobLinkAngs):
         for vertex in self.vertexList:
             #if distance of vertex to current position is less than 0.5m
             realposition = self.realposition()
-            if sqrt((vertex.x - realposition[0])**2 + (vertex.y - realposition[1])**2) < 0.5:
-                print("Found vertex",vertex.x, vertex.y, "at", realposition[0], realposition[1])
+            # print(vertex.x)
+            # print(vertex.y)
+            # print(round(self.gps("x")))
+            # print(vertex.x == round(self.gps("x")))
+            if vertex.x == round(self.gps("x"))and vertex.y == round(self.gps("y")):
+                print("FOUND VERTEX")
+                print(vertex.edges)
+                if self.direction == "up":
+                    vertex.edges["down"] = 2
+                elif self.direction == "down":
+                    vertex.edges["up"] = 2
+                elif self.direction == "left":
+                    vertex.edges["right"] = 2
+                elif self.direction == "right":
+                    vertex.edges["left"] = 2
+                if vertex.edges["up"] == 2 and vertex.edges["down"] == 2 and vertex.edges["left"] == 2 and vertex.edges["right"] == 2:
+                    vertex.explored = True
+                print(vertex.edges)
                 return vertex
+            
+            # if sqrt((vertex.x - realposition[0])**2 + (vertex.y - realposition[1])**2) < 0.5:
+            #     #!print("Found vertex",vertex.x, vertex.y, "at", realposition[0], realposition[1])
+            #     return vertex
         #if vertex is not found nearby, must be a new one
         return self.detectVertex()
             
@@ -191,8 +210,12 @@ class MyRob(CRobLinkAngs):
         if self.measures.lineSensor[0] == "1" or self.measures.lineSensor[6] == "1":
             vertex = Vertex()
             #offset vertex position because of the center of the robot
-            vertex.x= self.gps("x") + (0.438 * math.cos(math.radians(self.measures.compass)))
-            vertex.y= self.gps("y") + (0.438 * math.sin(math.radians(self.measures.compass)))
+            # vertex.x= round(self.gps("x") + (0.438 * math.cos(math.radians(self.measures.compass))))
+            # vertex.y= round(self.gps("y") + (0.438 * math.sin(math.radians(self.measures.compass))))
+            vertex.x = roundcoord(self.gps("x"))
+            vertex.y = roundcoord(self.gps("y"))
+            # print(vertex.x)
+            # print(vertex.y)
             
             if self.direction == "right":
                 if self.measures.lineSensor[0] == "1":
@@ -231,7 +254,7 @@ class MyRob(CRobLinkAngs):
                 
                 #explored we just came from there         
                 vertex.edges["up"] = 2
-    
+            self.vertexList.append(vertex)
             return vertex
         return None
 
@@ -240,35 +263,41 @@ class MyRob(CRobLinkAngs):
         self.driveMotors(motorStrengthMap[direction][0], motorStrengthMap[direction][1])
         
     def adjustForward(self):
-        global prevDistance
-        distance = math.sqrt((self.turnpoint[0] - self.gps("x"))**2 + (self.turnpoint[1] - self.gps("y"))**2)
-        dir = 0
+        # global prevDistance
+        global distance
+        global once
+        if once==0:
+            print("onceaaaaa")
+            distance = math.sqrt((self.turnpoint[0] - self.gps("x"))**2 + (self.turnpoint[1] - self.gps("y"))**2)
+            print(distance)
+
+        if distance < 0.1:
+            #check if has path forward of the vertex, update the vertex 
+            if (self.measures.lineSensor[3] == "1"):
+                self.currentVertex.edges[self.direction] = 1
+            return 1
+        
+        # prevDistance = distance
+        walk = distance
+        if walk > 0.03:
+            walk = 0.03
+            
+        distance -= walk
+        print(distance)
+        if distance <=0:
+            return 1
+        self.driveMotors(walk,walk)
+        return 0
         #prevent overshooting turnpoint
         #print("AdjustForward",prevDistance, distance)
-        if prevDistance < distance:
-            self.turnpoint = None
-            #check if has path forward of the vertex, update the vertex 
-            if (self.measures.lineSensor[3] == "1"):
-                self.currentVertex.edges[self.direction] = 1
-            print("Go back")
-            self.driveMotors(-distance,-distance)
-            return 1
-        
-        if distance < 0.0000008:
-            self.turnpoint = None
-            
-            #check if has path forward of the vertex, update the vertex 
-            if (self.measures.lineSensor[3] == "1"):
-                self.currentVertex.edges[self.direction] = 1
-            return 1
-        
-        prevDistance = distance
-        
-        if distance > 0.03:
-            distance = 0.03
-        self.driveMotors(distance,distance)
-        return 0
-
+        # if prevDistance < distance:
+        #     self.turnpoint = None
+        #     #check if has path forward of the vertex, update the vertex 
+        #     if (self.measures.lineSensor[3] == "1"):
+        #         self.currentVertex.edges[self.direction] = 1
+        #     # print("Go back")
+        #     self.driveMotors(-distance/2,-distance/2)
+        #     return 1
     
     def orient(self, direction):
         #print("orient ", direction, " ", self.measures.compass)
@@ -320,16 +349,19 @@ class MyRob(CRobLinkAngs):
         return v1
     
     def Decide(self):
-       
+        global once
         bol = self.adjustForward()
+        once = 1
         if bol == 1 :
-            
+            once = 0
             self.state = "orient"
-            print("Decide")
-            print("v1: ", self.currentVertex.edges,)
+            print("Decide : ", self.currentVertex.edges,)
+            print("direction",self.direction)
+            print()
             
             decision = ""
             
+
             if self.currentVertex.edges["down"] == 1:
                 self.currentVertex.edges["down"] = 2
                 decision="down"
