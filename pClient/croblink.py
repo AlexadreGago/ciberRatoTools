@@ -11,6 +11,7 @@ class CRobLink:
 
 
     def __init__ (self, robName, robId, host):
+
         self.robName = robName
         self.robId = robId
         self.host = host

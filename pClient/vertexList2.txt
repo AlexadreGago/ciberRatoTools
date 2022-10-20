@@ -1,0 +1,15 @@
+Vertex 0 at (0,0), edges: {'up': 0, 'down': 0, 'left': 0, 'right': 0}, connects: {'right': 1} 
+Vertex 1 at (2,0), edges: {'up': 0, 'down': 2, 'left': 2, 'right': 1}, connects: {'left': 0, 'down': 2} 
+Vertex 2 at (2,-2), edges: {'up': 2, 'down': 0, 'left': 0, 'right': 2}, connects: {'up': 1, 'right': 3} 
+Vertex 3 at (4,-2), edges: {'up': 2, 'down': 0, 'left': 2, 'right': 0}, connects: {'left': 2, 'up': 4} 
+Vertex 4 at (4,0), edges: {'up': 2, 'down': 2, 'left': 1, 'right': 0}, connects: {'down': 3, 'up': 5} 
+Vertex 5 at (4,2), edges: {'up': 0, 'down': 2, 'left': 0, 'right': 2}, connects: {'down': 4, 'right': 6} 
+Vertex 6 at (6,2), edges: {'up': 0, 'down': 2, 'left': 2, 'right': 1}, connects: {'left': 5, 'down': 7} 
+Vertex 7 at (6,0), edges: {'up': 2, 'down': 0, 'left': 0, 'right': 2}, connects: {'up': 6, 'right': 8} 
+Vertex 8 at (8,0), edges: {'up': 0, 'down': 2, 'left': 2, 'right': 1}, connects: {'left': 7, 'down': 9} 
+Vertex 9 at (8,-2), edges: {'up': 2, 'down': 0, 'left': 2, 'right': 0}, connects: {'up': 8, 'left': 10} 
+Vertex 10 at (6,-2), edges: {'up': 0, 'down': 2, 'left': 0, 'right': 2}, connects: {'right': 9, 'down': 11} 
+Vertex 11 at (6,-4), edges: {'up': 2, 'down': 0, 'left': 2, 'right': 0}, connects: {'up': 10, 'left': 12} 
+Vertex 12 at (0,-4), edges: {'up': 1, 'down': 2, 'left': 0, 'right': 2}, connects: {'right': 11, 'down': 13} 
+Vertex 13 at (0,-6), edges: {'up': 2, 'down': 2, 'left': 1, 'right': 0}, connects: {'up': 12} 
+Vertex 14 at (0,-8), edges: {'up': 2, 'down': 0, 'left': 1, 'right': 1}, connects: {} 

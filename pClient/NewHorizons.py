@@ -4,7 +4,10 @@ import math
 from croblink import *
 from math import *
 import xml.etree.ElementTree as ET
+from pprint import pprint
+import itertools
 
+import search
 CELLROWS=7
 CELLCOLS=14
 
@@ -15,16 +18,18 @@ count=0
 prevDistance=5
 once =0
 distance = 5
+
+corrected = 1
 ############
 
 motorStrengthMap = {
-    "front": (0.1,0.1),
+    "front": (0.15,0.15),
     "frontslow": (0.05, 0.05),
     "backward": (-0.05,-0.05),
     "left": (-0.15,0.15),
     "right": (0.15,-0.15),
-    "slightLeft": (0.08,0.1),
-    "slightRight": (0.1,0.08),
+    "slightLeft": (0.11,0.15),
+    "slightRight": (0.15,0.11),
     "stop": (0,0)
 }
 
@@ -35,6 +40,13 @@ directionMap = {
     "down": -90
 }
 
+inversedirectionMap = {
+    "right": "left",
+    "up": "down",
+    "left": "right",
+    "down": "up"
+}
+
 lastdecision = "stop"
 
 
@@ -43,17 +55,20 @@ def roundcoord(x):
     return int(round(x / 2.0)) * 2
 
 class Vertex():
-    def __init__(self):
+    id_iter = itertools.count()
+    def __init__(self, x=-1, y=-1):
         self.explored = False
-        self.x = -1
-        self.y = -1
+        self.x = x
+        self.y = y
         # 0 unknown; 1 exists but unexplred ; 2 -Exists and explored ; 3- Unexistant;
         self.edges = {"up" : 0, 
                  "down" : 0, 
                  "left" : 0, 
                  "right" : 0}
         self.connects = {}
-        
+        self.id = next(Vertex.id_iter)
+    def __repr__(self) -> str:
+        return f"Vertex {self.id} at ({self.x},{self.y}), edges: {self.edges}, connects: {self.connects} \n"
         
 
 
@@ -61,21 +76,38 @@ class MyRob(CRobLinkAngs):
     def __init__(self, rob_name, rob_id, angles, host):
         CRobLinkAngs.__init__(self, rob_name, rob_id, angles, host)
         
+        #!!!!---------------
+        self.rob_name = "New Horizons"
+        self.detectedsensors = []
         self.previouspowerLR = (0,0)
         self.turnpoint = None
         self.currentVertex = None
         
+        self.targetVertex = None
+        self.queue = []
+        
         self.direction = "right"
         self.state = 'stop'
 
-        self.vertexList=[]
         
-        self.prevVertex = [0, 0]
-
+        
+        self.prevVertex = Vertex(0,0)
+        self.vertexList=[self.prevVertex]
         self.initialPos = [0,0]
         
 
-
+    #offset gps with initialpos
+    def gps(self, dir):
+        return self.measures.x - self.initialPos[0] if dir == "x" else self.measures.y - self.initialPos[1]
+    
+    def realposition(self):
+    #   return [ self.gps("x") + (0.5 * math.cos(math.radians(self.measures.compass))), self.gps("y") + (0.5 * math.sin(math.radians(self.measures.compass)))]
+        return [ roundcoord(self.gps("x")), roundcoord(self.gps("y"))]
+    
+    def move(self, direction, compensate = None):
+        global lastdecision
+        self.driveMotors(motorStrengthMap[direction][0], motorStrengthMap[direction][1])
+    
     # In this map the center of cell (i,j), (i in 0..6, j in 0..13) is mapped to labMap[i*2][j*2].
     # to know if there is a wall on top of cell(i,j) (i in 0..5), check if the value of labMap[i*2+1][j*2] is space or not
     def setMap(self, labMap):
@@ -95,9 +127,22 @@ class MyRob(CRobLinkAngs):
         self.readSensors()
         self.initialPos = [self.measures.x, self.measures.y]
         print("Initial position: ", self.initialPos)
+        
+        #Clear output file
+        open('vertexList.txt', 'w').close()
+        
         while True:
             #print(self.direction)
             self.readSensors()
+            
+            # if len(self.vertexList) == 15:
+            #     file = open("vertexList2.txt", "w")
+            #     for vertex in self.vertexList:
+            #         file.write(str(vertex))
+            #     file.close()
+            #     self.finish()
+            #     quit()
+                
             
             if self.measures.endLed:
                 print(self.rob_name + " exiting")
@@ -124,6 +169,8 @@ class MyRob(CRobLinkAngs):
                 
             elif self.state == "vertexDiscovery":
                 self.vertexDiscovery()
+            elif self.state == "pathfinding":
+                self.pathfinding()
             
             elif self.state=='wait':
                 self.setReturningLed(True)
@@ -141,10 +188,7 @@ class MyRob(CRobLinkAngs):
                     self.setReturningLed(False)
                 self.wander()
     
-    #offset gps with initialpos
-    def gps(self, dir):
-        return self.measures.x - self.initialPos[0] if dir == "x" else self.measures.y - self.initialPos[1]
-   
+
     def vertexDiscovery(self):
         #print("VertexDicovery")
         #-----------------------------
@@ -165,37 +209,36 @@ class MyRob(CRobLinkAngs):
                 #self.turnpoint= [self.measures.x + 0.438 * math.cos(math.radians(self.measures.compass)), self.measures.y + 0.438 * math.sin(math.radians(self.measures.compass))]
                 self.turnpoint= [(vertex.x), (vertex.y)]
                 
+                self.detectedsensors = []
                 
             else :# IF NO VERTEX IS DETECTED
                 print("must have been the wind ", self.measures.lineSensor)
                 self.state = "return"
 
-    def realposition(self):
-        #return [ self.gps("x") + (0.5 * math.cos(math.radians(self.measures.compass))), self.gps("y") + (0.5 * math.sin(math.radians(self.measures.compass)))]
-        return [ roundcoord(self.gps("x")), roundcoord(self.gps("y"))]
     def checkNearVertex(self):
         #if any vertice is within 0.5m of the current position, return that vertex
         for vertex in self.vertexList:
             #if distance of vertex to current position is less than 0.5m
-            realposition = self.realposition()
+            #realposition = self.realposition()
             # print(vertex.x)
             # print(vertex.y)
             # print(round(self.gps("x")))
             # print(vertex.x == round(self.gps("x")))
             if vertex.x == round(self.gps("x"))and vertex.y == round(self.gps("y")):
-                print("FOUND VERTEX")
-                print(vertex.edges)
-                if self.direction == "up":
-                    vertex.edges["down"] = 2
-                elif self.direction == "down":
-                    vertex.edges["up"] = 2
-                elif self.direction == "left":
-                    vertex.edges["right"] = 2
-                elif self.direction == "right":
-                    vertex.edges["left"] = 2
-                if vertex.edges["up"] == 2 and vertex.edges["down"] == 2 and vertex.edges["left"] == 2 and vertex.edges["right"] == 2:
-                    vertex.explored = True
-                print(vertex.edges)
+               # print(f"FOUND VERTEX {vertex.id} ")
+                
+                # if self.direction == "up":
+                #     vertex.edges["down"] = 2
+                # elif self.direction == "down":
+                #     vertex.edges["up"] = 2
+                # elif self.direction == "left":
+                #     vertex.edges["right"] = 2
+                # elif self.direction == "right":
+                #     vertex.edges["left"] = 2
+
+                vertex.edges[inversedirectionMap[self.direction]] = 2
+                #print(vertex.edges)
+                
                 return vertex
             
             # if sqrt((vertex.x - realposition[0])**2 + (vertex.y - realposition[1])**2) < 0.5:
@@ -206,8 +249,8 @@ class MyRob(CRobLinkAngs):
             
     def detectVertex(self):
         #print("detectVertex")
-       
-        if self.measures.lineSensor[0] == "1" or self.measures.lineSensor[6] == "1":
+        #!using detect sensors
+        if self.detectedsensors[0] == "1" or self.detectedsensors[6] == "1":
             vertex = Vertex()
             #offset vertex position because of the center of the robot
             # vertex.x= round(self.gps("x") + (0.438 * math.cos(math.radians(self.measures.compass))))
@@ -218,18 +261,18 @@ class MyRob(CRobLinkAngs):
             # print(vertex.y)
             
             if self.direction == "right":
-                if self.measures.lineSensor[0] == "1":
+                if self.detectedsensors[0] == "1":
                     vertex.edges["up"] = 1
-                if self.measures.lineSensor[6] == "1":
+                if self.detectedsensors[6] == "1":
                     vertex.edges["down"] = 1
                 
                 #explored we just came from there
                 vertex.edges["left"] = 2
                 
             elif self.direction == "left":
-                if self.measures.lineSensor[0] == "1":
+                if self.detectedsensors[0] == "1":
                     vertex.edges["down"] = 1    
-                if self.measures.lineSensor[6] == "1":
+                if self.detectedsensors[6] == "1":
                     vertex.edges["up"] = 1
                 
                 #explored we just came from there    
@@ -238,43 +281,153 @@ class MyRob(CRobLinkAngs):
             
             elif self.direction == "up":
                 
-                if self.measures.lineSensor[0] == "1":
+                if self.detectedsensors[0] == "1":
                     vertex.edges["left"] = 1
-                if self.measures.lineSensor[6] == "1":
+                if self.detectedsensors[6] == "1":
                     vertex.edges["right"] = 1
                     
                 #explored we just came from there
                 vertex.edges["down"] = 2
             
             elif self.direction == "down":
-                if self.measures.lineSensor[0] == "1":
+                if self.detectedsensors[0] == "1":
                     vertex.edges["right"] = 1
-                if self.measures.lineSensor[6] == "1":
+                if self.detectedsensors[6] == "1":
                     vertex.edges["left"] = 1
                 
                 #explored we just came from there         
                 vertex.edges["up"] = 2
+                
             self.vertexList.append(vertex)
+            file = open("vertexList.txt", "a")
+            file.write(str(vertex))
+            file.write( "\n")
+            file.close()
+            
             return vertex
         return None
+    
+    def Decide(self):
+        global once, corrected
+        global inversedirectionMap
+        bol = self.adjustForward()
+        once = 1
+        if bol == 1 :
+            once = 0
+            self.state = "orient"
+            print(f"Decide {self.currentVertex.id}: {self.currentVertex.edges} ")
+            # print("direction",self.direction)
+            # print()
+            
+            decision = ""
 
-    def move(self, direction, compensate = None):
-        global lastdecision
-        self.driveMotors(motorStrengthMap[direction][0], motorStrengthMap[direction][1])
+            
+            if len(self.queue) > 0:
+                decision = self.queue.pop(0)
+                print("queue", self.queue)
+                self.direction = decision
+                self.prevVertex = self.currentVertex
+                self.currentVertex = None
+                return
+            
+            # if len(self.vertexList) == 8 and corrected == 1:
+            #     corrected = 0
+            #     self.state="pathfinding"
+            #     self.prevVertex.connects[self.direction] = self.currentVertex.id
+            #     self.currentVertex.connects[inversedirectionMap[self.direction]] = self.prevVertex.id
+            #     if self.currentVertex not in self.vertexList:
+            #         self.vertexList.append(self.currentVertex)
+            #     else:
+            #         self.vertexList[self.vertexList.index(self.currentVertex)] = self.currentVertex
+            #     return
+            
+            else:
+                self.targetVertex = None
+                if self.currentVertex.edges["down"] == 1:
+                    self.currentVertex.edges["down"] = 2
+                    decision="down"
+                
+                elif self.currentVertex.edges["right"]== 1:
+                    self.currentVertex.edges["right"] = 2
+                    decision="right"
+                
+                
+                elif self.currentVertex.edges["up"]== 1:
+                    self.currentVertex.edges["up"] = 2
+                    decision="up"
+
+                elif self.currentVertex.edges["left"] == 1:
+                    self.currentVertex.edges["left "] = 2
+                    decision="left"
+
+                else:
+                    self.state="pathfinding"
+                    
+                    self.prevVertex.connects[self.direction] = self.currentVertex.id
+                    self.currentVertex.connects[inversedirectionMap[self.direction]] = self.prevVertex.id
+                    
+                    if self.currentVertex not in self.vertexList:
+                        self.vertexList.append(self.currentVertex)
+                    else:
+                        self.vertexList[self.vertexList.index(self.currentVertex)] = self.currentVertex
+                    
+                    self.move("stop")
+                    return
+            
+            #append current vertex to self.vertexlist else update it
+            
+            self.prevVertex.connects[self.direction] = self.currentVertex.id
+            self.currentVertex.connects[inversedirectionMap[self.direction]] = self.prevVertex.id
+
+            
+            
+            if self.currentVertex not in self.vertexList:
+                self.vertexList.append(self.currentVertex)
+            else:
+                self.vertexList[self.vertexList.index(self.currentVertex)] = self.currentVertex
+                
+
+            self.direction = decision
+            self.prevVertex = self.currentVertex
+            self.currentVertex = None
+            #pprint(self.vertexList)
+            #replace on the vertex list the vertex
+    
+    def pathfinding(self):
+        #!find a vertex that has not been explored
+        #!for now ill just force it to go to vertex 0
+        shortestpath = 100
+        if self.targetVertex == None:
+            for vertex in self.vertexList:
+                if 1 in vertex.edges.values():
+                    print("target vertex", vertex.id)
+                    print("target vertex", vertex.edges)
+                    self.targetVertex = vertex
+                    queue = search.directionqueue(self.vertexList, self.currentVertex.id, self.targetVertex.id)
+                    if len(queue) <= shortestpath:
+                        shortestpath = len(queue)
+                        self.queue= queue
+
+                        
+        print("Pathfinding to", self.targetVertex.id)        
+        self.direction = self.queue.pop(0)
+        self.state="orient"
+        
+        
         
     def adjustForward(self):
         # global prevDistance
         global distance
         global once
         if once==0:
-            print("onceaaaaa")
             distance = math.sqrt((self.turnpoint[0] - self.gps("x"))**2 + (self.turnpoint[1] - self.gps("y"))**2)
-            print(distance)
+            #print(distance)
 
-        if distance < 0.1:
+        if distance < 0.12:
             #check if has path forward of the vertex, update the vertex 
             if (self.measures.lineSensor[3] == "1"):
-                self.currentVertex.edges[self.direction] = 1
+                self.currentVertex.edges[self.direction] = 1 if self.currentVertex.edges[self.direction] == 0 else self.currentVertex.edges[self.direction]
+                return 1
             return 1
         
         # prevDistance = distance
@@ -283,7 +436,7 @@ class MyRob(CRobLinkAngs):
             walk = 0.03
             
         distance -= walk
-        print(distance)
+        #print(distance)
         if distance <=0:
             return 1
         self.driveMotors(walk,walk)
@@ -334,64 +487,6 @@ class MyRob(CRobLinkAngs):
         self.driveMotors(-power, power)
         
         return 0
-    
-    def CreateVertex(self,x,y,edges):
-        
-        v1 = Vertex()
-        v1.x = x
-        v1.y=y
-        v1.up = edges[0]
-        v1.right = edges[1]
-        v1.down = edges[2]
-        v1.left = edges[3]
-        
-        self.vertexList.append(v1)
-        return v1
-    
-    def Decide(self):
-        global once
-        bol = self.adjustForward()
-        once = 1
-        if bol == 1 :
-            once = 0
-            self.state = "orient"
-            print("Decide : ", self.currentVertex.edges,)
-            print("direction",self.direction)
-            print()
-            
-            decision = ""
-            
-
-            if self.currentVertex.edges["down"] == 1:
-                self.currentVertex.edges["down"] = 2
-                decision="down"
-            
-            elif self.currentVertex.edges["right"]== 1:
-                self.currentVertex.edges["right"] = 2
-                decision="right"
-            
-            
-            elif self.currentVertex.edges["up"]== 1:
-                self.currentVertex.edges["up"] = 2
-                decision="up"
-
-            elif self.currentVertex.edges["left"] == 1:
-                self.currentVertex.edges["left "] = 2
-                decision="left"
-
-            else:
-                #!default if all explored
-                print("default")
-                decision = "right"
-            
-            self.vertexList.append(self.currentVertex) if self.currentVertex not in self.vertexList else None
-            #update vertex in the list
-            self.vertexList = [self.currentVertex if v.x == self.currentVertex.x and v.y == self.currentVertex.y else v for v in self.vertexList]
-
-            self.direction = decision
-            self.prevVertex = self.currentVertex
-            self.currentVertex = None
-            #replace on the vertex list the vertex
 
     
     def wander(self):
@@ -418,15 +513,15 @@ class MyRob(CRobLinkAngs):
         else:
             #locked in turn
             #if all 7 sensors report "1"
-
-            
             #go back if no line detected
-
             #if one of these sensors is "1" check if we´re near vertex
             if((self.measures.lineSensor[:2].count("1") >= 2) or self.measures.lineSensor[5:7].count("1") >=2):
-                print("near vertex ", self.measures.lineSensor)
+                #print("near vertex ", self.measures.lineSensor)
                 self.state="vertexDiscovery"
+                self.detectedsensors = self.measures.lineSensor
+             
                 self.move("stop")
+           
         
             elif(self.measures.lineSensor[5]=="1"):
                 self.move("slightRight")
