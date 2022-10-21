@@ -6,13 +6,14 @@ global data
 
 def createMap():
     
-    outMap = open("map.txt", "w+")
+    outMap = open("myrob.map", "w+")
 
     #Create a 2D board
     for i in range(21):
         for j in range(49):
             outMap.write(" ")
-        outMap.write('\n')
+        if i != 20:
+            outMap.write('\n')
     outMap.close()
     
 class Vertex():
@@ -33,9 +34,9 @@ class Vertex():
     
 def InsertEdges2():
     vertexList = None
-    inp = open("vertexlist.pkl","rb")
+    inp = open("vertexlist(3).pkl","rb")
     vertexList = pickle.load(inp)
-    
+    print(vertexList)
     for vertex in vertexList:
         print("-----------------")
         print("vertex",vertex)
@@ -63,7 +64,7 @@ def InsertEdges2():
                     dataChars[x+startx] = "|"
                     data[min(-y,-conY)+starty+j+1] = "".join(dataChars)
                     
-                    with open ("map.txt","r+") as file:
+                    with open ("myrob.map","r+") as file:
                         file.writelines(data)      
 
                 
@@ -81,18 +82,35 @@ def InsertEdges2():
                         dataChars[startx +min(x,conX)+j+1] = "-"
 
                 data[-y+starty] = "".join(dataChars)
+def alterMap(posx,line,newData):
+    global data
+    startx = round(49/2)
+    starty = round(21/2)
+    #change data
+    dataChars = list(data[line+starty])
+        
+    newDataList = list(newData)
+    
+    #Put data in specific position
+    for i in range(len(newDataList)):
+
+        dataChars[startx + i +posx] = str(newDataList[i])
+            
+    data[line+starty] = "".join(dataChars)
     
 def main():
     
     global data 
     
     createMap()
-    outMap = open("map.txt" ,"r+")
+    outMap = open("myrob.map" ,"r+")
     data = outMap.readlines()
     outMap.close()
 
     # insertEdges()
     InsertEdges2()
-    
+    alterMap(0,0,"I")
+    with open ("myrob.map","w") as file:
+        file.writelines(data)
 
 main()
