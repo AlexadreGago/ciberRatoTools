@@ -62,6 +62,11 @@ def directionqueue(vertexlist, start, end):
                 directions.append(key)
     return directions
 
+def beaconpath(vertexlist):
+    graph=build_graph(vertexlist)
+
+    
+
 
 if __name__ == "__main__":
     with open('vertexlist.pkl', 'rb') as inp:

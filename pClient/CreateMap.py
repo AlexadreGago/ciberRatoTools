@@ -34,8 +34,7 @@ class Vertex():
 def InsertEdges(vertexList):
 
     for vertex in vertexList:
-        print("-----------------")
-        print("vertex",vertex)
+
         
         x = vertex.x
         y = vertex.y
@@ -43,16 +42,11 @@ def InsertEdges(vertexList):
         for connect in vertex.connects:
             conX = vertexList[vertex.connects[connect]].x
             conY = vertexList[vertex.connects[connect]].y
-            
-            print("Connect",conX,conY)
-            print("Real",x,y)
+
             if conX == x:
-                print("filling y axis")
                 startx = round(49/2)
                 starty = round(21/2)
             for j in range (max(y,conY)-min(y,conY)-1):
-                # print("j",j)
-                # print(max(y,prevY)+starty+j+1)
                 if j %2 == 0:
                 
                     dataChars = list(data[min(-y,-conY)+starty+j+1])
@@ -64,7 +58,6 @@ def InsertEdges(vertexList):
                         file.writelines(data)      
 
             if conY == y:
-                print("filling x axis")
                 startx = round(49/2)
                 starty = round(21/2)
                 #change data
@@ -77,6 +70,7 @@ def InsertEdges(vertexList):
                         dataChars[startx +min(x,conX)+j+1] = "-"
 
                 data[-y+starty] = "".join(dataChars)
+
 def alterMap(posx,line,newData):
     global data
     startx = round(49/2)
