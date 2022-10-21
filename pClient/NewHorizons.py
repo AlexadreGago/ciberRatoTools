@@ -6,6 +6,7 @@ from math import *
 import xml.etree.ElementTree as ET
 from pprint import pprint
 import itertools
+from collections import Counter
 
 import search
 CELLROWS=7
@@ -68,8 +69,8 @@ class Vertex():
         self.connects = {}
         self.id = next(Vertex.id_iter)
     def __repr__(self) -> str:
-        return f"Vertex {self.id} at ({self.x},{self.y}), edges: {self.edges}, connects: {self.connects} \n"
-        
+        #return f"Vertex {self.id} at ({self.x},{self.y}), edges: {self.edges}, connects: {self.connects} \n"
+        return f"{self.id}:{self.edges}"
 
 
 class MyRob(CRobLinkAngs):
@@ -225,7 +226,6 @@ class MyRob(CRobLinkAngs):
             # print(round(self.gps("x")))
             # print(vertex.x == round(self.gps("x")))
             if vertex.x == round(self.gps("x"))and vertex.y == round(self.gps("y")):
-               # print(f"FOUND VERTEX {vertex.id} ")
                 
                 # if self.direction == "up":
                 #     vertex.edges["down"] = 2
@@ -249,6 +249,7 @@ class MyRob(CRobLinkAngs):
             
     def detectVertex(self):
         #print("detectVertex")
+        global inversedirectionMap
         #!using detect sensors
         if self.detectedsensors[0] == "1" or self.detectedsensors[6] == "1":
             vertex = Vertex()
@@ -299,13 +300,18 @@ class MyRob(CRobLinkAngs):
                 vertex.edges["up"] = 2
                 
             self.vertexList.append(vertex)
-            file = open("vertexList.txt", "a")
-            file.write(str(vertex))
-            file.write( "\n")
-            file.close()
+
             
             return vertex
-        return None
+        else:
+            vertex= Vertex()
+            vertex.x = roundcoord(self.gps("x"))
+            vertex.y = roundcoord(self.gps("y"))
+            vertex.edges= {direction:0 for direction in directionMap}
+            print(vertex.edges)
+            vertex.edges[inversedirectionMap[self.direction]] = 2
+            self.vertexList.append(vertex)
+        return vertex
     
     def Decide(self):
         global once, corrected
@@ -357,7 +363,7 @@ class MyRob(CRobLinkAngs):
                     decision="up"
 
                 elif self.currentVertex.edges["left"] == 1:
-                    self.currentVertex.edges["left "] = 2
+                    self.currentVertex.edges["left"] = 2
                     decision="left"
 
                 else:
@@ -370,7 +376,7 @@ class MyRob(CRobLinkAngs):
                         self.vertexList.append(self.currentVertex)
                     else:
                         self.vertexList[self.vertexList.index(self.currentVertex)] = self.currentVertex
-                    
+                
                     self.move("stop")
                     return
             
@@ -390,6 +396,7 @@ class MyRob(CRobLinkAngs):
             self.direction = decision
             self.prevVertex = self.currentVertex
             self.currentVertex = None
+          
             #pprint(self.vertexList)
             #replace on the vertex list the vertex
     
@@ -398,21 +405,38 @@ class MyRob(CRobLinkAngs):
         #!for now ill just force it to go to vertex 0
         shortestpath = 100
         if self.targetVertex == None:
-            for vertex in self.vertexList:
-                if 1 in vertex.edges.values():
-                    print("target vertex", vertex.id)
-                    print("target vertex", vertex.edges)
-                    self.targetVertex = vertex
-                    queue = search.directionqueue(self.vertexList, self.currentVertex.id, self.targetVertex.id)
-                    if len(queue) <= shortestpath:
-                        shortestpath = len(queue)
-                        self.queue= queue
+            if Counter(self.currentVertex.edges.values())[0] == 3:
+                self.targetVertex = self.prevVertex
+                
+                print(self.prevVertex.id)
+                print(self.currentVertex.id)
+                print(self.currentVertex.id in self.prevVertex.connects.values())
+                print(self.prevVertex.id in self.currentVertex.connects.values())                
+                
+                self.queue= search.directionqueue(self.vertexList,self.currentVertex, self.targetVertex)
+            else:
+                for vertex in self.vertexList:
+                    if 1 in vertex.edges.values():
+                        # print("target vertex", vertex.id)
+                        # print("target vertex", vertex.edges)
+                        self.targetVertex = vertex
+                        queue = search.directionqueue(self.vertexList, self.currentVertex.id, self.targetVertex.id)
+                        if len(queue) < shortestpath:
+                            shortestpath = len(queue)
+                            self.queue= queue
 
-                        
-        print("Pathfinding to", self.targetVertex.id)        
-        self.direction = self.queue.pop(0)
-        self.state="orient"
-        
+        if len(self.queue)>0:
+            print(f"Pathfinding to {self.targetVertex.id} {self.targetVertex.edges}")  
+            print(queue)
+            print(self.queue)      
+            self.direction = self.queue.pop(0)
+            self.state="orient"
+        else:
+            print("Im done")
+            file = open("vertexList.txt", "w")
+            file.write(str(self.vertexList))
+            file.close()
+            self.finish()
         
         
     def adjustForward(self):
@@ -422,10 +446,12 @@ class MyRob(CRobLinkAngs):
         if once==0:
             distance = math.sqrt((self.turnpoint[0] - self.gps("x"))**2 + (self.turnpoint[1] - self.gps("y"))**2)
             #print(distance)
-
-        if distance < 0.12:
+        if distance >=0.12:
+            distance = math.sqrt((self.turnpoint[0] - self.gps("x"))**2 + (self.turnpoint[1] - self.gps("y"))**2)
+        if distance < 0.1:
+            self.readSensors()
             #check if has path forward of the vertex, update the vertex 
-            if (self.measures.lineSensor[3] == "1"):
+            if (self.measures.lineSensor[3] == "1" or self.measures.lineSensor[4] == "1" or self.measures.lineSensor[2] == "1"):
                 self.currentVertex.edges[self.direction] = 1 if self.currentVertex.edges[self.direction] == 0 else self.currentVertex.edges[self.direction]
                 return 1
             return 1
@@ -490,7 +516,7 @@ class MyRob(CRobLinkAngs):
 
     
     def wander(self):
-    
+        global inversedirectionMap
             
         #check if collision against wall
         center_id = 0
@@ -535,10 +561,10 @@ class MyRob(CRobLinkAngs):
                 self.move("front")
                 
             elif self.measures.lineSensor == ["0","0","0","0","0","0","0"]:
-                print("near vertex ", self.measures.lineSensor)
-                #TODO turn back
-                self.direction = "down"
-                self.state="orient"
+                #print("near vertex ", self.measures.lineSensor)
+            
+                self.state="vertexDiscovery"
+                self.detectedsensors = self.measures.lineSensor
                 self.move("stop")
             
             else:
