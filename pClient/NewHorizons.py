@@ -7,7 +7,7 @@ import xml.etree.ElementTree as ET
 from pprint import pprint
 import itertools
 from collections import Counter
-
+import CreateMap
 import search
 CELLROWS=7
 CELLCOLS=14
@@ -58,7 +58,6 @@ def roundcoord(x):
 class Vertex():
     id_iter = itertools.count()
     def __init__(self, x=-1, y=-1):
-        self.explored = False
         self.x = x
         self.y = y
         # 0 unknown; 1 exists but unexplred ; 2 -Exists and explored ; 3- Unexistant;
@@ -68,10 +67,10 @@ class Vertex():
                  "right" : 0}
         self.connects = {}
         self.id = next(Vertex.id_iter)
+        self.isDeadEnd = False
     def __repr__(self) -> str:
-        #return f"Vertex {self.id} at ({self.x},{self.y}), edges: {self.edges}, connects: {self.connects} \n"
-        return f"{self.id}:{self.edges}"
-
+        return f"Vertex {self.id} at ({self.x},{self.y}), edges: {self.edges}, connects: {self.connects} \n"
+        #return f"{self.id}:{self.edges}" if not self.deadEnd else f"{self.id} is deadEnd, connects to {self.connects}"
 
 class MyRob(CRobLinkAngs):
     def __init__(self, rob_name, rob_id, angles, host):
@@ -129,8 +128,6 @@ class MyRob(CRobLinkAngs):
         self.initialPos = [self.measures.x, self.measures.y]
         print("Initial position: ", self.initialPos)
         
-        #Clear output file
-        open('vertexList.txt', 'w').close()
         
         while True:
             #print(self.direction)
@@ -226,15 +223,6 @@ class MyRob(CRobLinkAngs):
             # print(round(self.gps("x")))
             # print(vertex.x == round(self.gps("x")))
             if vertex.x == round(self.gps("x"))and vertex.y == round(self.gps("y")):
-                
-                # if self.direction == "up":
-                #     vertex.edges["down"] = 2
-                # elif self.direction == "down":
-                #     vertex.edges["up"] = 2
-                # elif self.direction == "left":
-                #     vertex.edges["right"] = 2
-                # elif self.direction == "right":
-                #     vertex.edges["left"] = 2
 
                 vertex.edges[inversedirectionMap[self.direction]] = 2
                 #print(vertex.edges)
@@ -310,6 +298,7 @@ class MyRob(CRobLinkAngs):
             vertex.edges= {direction:0 for direction in directionMap}
             print(vertex.edges)
             vertex.edges[inversedirectionMap[self.direction]] = 2
+            vertex.isDeadEnd = True
             self.vertexList.append(vertex)
         return vertex
     
@@ -402,18 +391,19 @@ class MyRob(CRobLinkAngs):
     
     def pathfinding(self):
         #!find a vertex that has not been explored
-        #!for now ill just force it to go to vertex 0
+        global inversedirectionMap
         shortestpath = 100
         if self.targetVertex == None:
-            if Counter(self.currentVertex.edges.values())[0] == 3:
+
+            if self.currentVertex.isDeadEnd:
+                print("dead end")
                 self.targetVertex = self.prevVertex
                 
-                print(self.prevVertex.id)
-                print(self.currentVertex.id)
-                print(self.currentVertex.id in self.prevVertex.connects.values())
-                print(self.prevVertex.id in self.currentVertex.connects.values())                
+                #!remove this after prints are gone
+                queue=[inversedirectionMap[self.direction]]
                 
-                self.queue= search.directionqueue(self.vertexList,self.currentVertex, self.targetVertex)
+                
+                self.queue=[inversedirectionMap[self.direction]]
             else:
                 for vertex in self.vertexList:
                     if 1 in vertex.edges.values():
@@ -423,7 +413,7 @@ class MyRob(CRobLinkAngs):
                         queue = search.directionqueue(self.vertexList, self.currentVertex.id, self.targetVertex.id)
                         if len(queue) < shortestpath:
                             shortestpath = len(queue)
-                            self.queue= queue
+                            self.queue = queue
 
         if len(self.queue)>0:
             print(f"Pathfinding to {self.targetVertex.id} {self.targetVertex.edges}")  
@@ -433,11 +423,14 @@ class MyRob(CRobLinkAngs):
             self.state="orient"
         else:
             print("Im done")
-            file = open("vertexList.txt", "w")
-            file.write(str(self.vertexList))
-            file.close()
+            self.prevVertex = self.currentVertex
+            self.currentVertex = None
+            
+            CreateMap.generate(self.vertexList)
+            
             self.finish()
-        
+        self.prevVertex = self.currentVertex
+        self.currentVertex = None
         
     def adjustForward(self):
         # global prevDistance
