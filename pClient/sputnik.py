@@ -1,3 +1,4 @@
+from operator import index
 import sys
 import time
 import math
@@ -92,11 +93,11 @@ class MyRob(CRobLinkAngs):
         self.state = 'stop'
 
         self.prevVertex = Vertex(0,0)
+        self.prevVertex.beacon = 0
         self.vertexList=[self.prevVertex]
         self.initialPos = [0,0]
 
-        self.beacon = -1
-        
+        self.inBeacon = -1
 
     #offset gps with initialpos
     def gps(self, dir):
@@ -133,7 +134,7 @@ class MyRob(CRobLinkAngs):
         
         while True:
             self.readSensors()
-            self.beacon =  self.measures.ground
+            self.inBeacon =  self.measures.ground
 
             if self.measures.endLed:
                 print(self.rob_name + " exiting")
@@ -191,9 +192,18 @@ class MyRob(CRobLinkAngs):
             #check if the vertex already exists, if it doesn´t, detect it and create it, if None is returned must have been a mistake
             vertex = self.checkNearVertex()
             if vertex:
-
+                print("MOTHERFUCKING BEACON", vertex) if vertex.beacon >= 0 else None
+                print(f"CURRENTE VERTEX {self.currentVertex}")
                 self.state = "decision"
+                #!shenanigans for beacons in straight line currentvertex should always be None unless it was a straight line beacon
+                if self.currentVertex and self.currentVertex.beacon >= 0 and not vertex.beacon>=0:
+                    # print("straing line currentVertex",self.currentVertex)
+                    # print("stright line beacon",self.currentVertex.beacon)
+                    print("previous vertex was straight line beacon")
+                    self.prevVertex = self.currentVertex
+                    
                 self.currentVertex = vertex
+                
                 #self.turnpoint= [self.measures.x + 0.438 * math.cos(math.radians(self.measures.compass)), self.measures.y + 0.438 * math.sin(math.radians(self.measures.compass))]
                 self.turnpoint= [(vertex.x), (vertex.y)]
                 
@@ -204,22 +214,25 @@ class MyRob(CRobLinkAngs):
                 self.state = "return"
 
     def checkNearVertex(self):
-        #if any vertice is within 0.5m of the current position, return that vertex
         for vertex in self.vertexList:
             if vertex.x == round(self.gps("x"))and vertex.y == round(self.gps("y")):
+                
+                if vertex.beacon>=0 and vertex.edges == {"up" : 0,"down" : 0, "left" : 0,"right" : 0}:
 
+                    return self.detectVertex(Beacon=True,vertex=vertex)
                 vertex.edges[inversedirectionMap[self.direction]] = 2         
                 return vertex
         #if vertex is not found nearby, must be a new one
         return self.detectVertex()
             
-    def detectVertex(self):
+    def detectVertex(self,Beacon=False,vertex=None):
         global inversedirectionMap
         #!using detect sensors
         if self.detectedsensors[0] == "1" or self.detectedsensors[6] == "1":
-            vertex = Vertex()
-            vertex.x = roundcoord(self.gps("x"))
-            vertex.y = roundcoord(self.gps("y"))
+            if not Beacon:
+                vertex = Vertex()
+                vertex.x = roundcoord(self.gps("x"))
+                vertex.y = roundcoord(self.gps("y"))
             
             if self.direction == "right":
                 if self.detectedsensors[0] == "1":
@@ -237,7 +250,6 @@ class MyRob(CRobLinkAngs):
                     vertex.edges["up"] = 1     
                 #explored we just came from there    
                 vertex.edges["right"] = 2
-    
             
             elif self.direction == "up":
                 
@@ -257,22 +269,28 @@ class MyRob(CRobLinkAngs):
                 vertex.edges["up"] = 2
 
 
-            vertex.beacon = self.beacon
+            #vertex.beacon = self.inBeacon
+            
+            if not Beacon:
+                self.vertexList.append(vertex)
+            else:
+                self.vertexList[self.vertexList.index(vertex)] = vertex
+                
 
-            self.vertexList.append(vertex)
             return vertex
 
         else:
-            vertex= Vertex()
-            vertex.x = roundcoord(self.gps("x"))
-            vertex.y = roundcoord(self.gps("y"))
-            vertex.edges= {direction:0 for direction in directionMap}
-            print(vertex.edges)
-            vertex.edges[inversedirectionMap[self.direction]] = 2
-            vertex.isDeadEnd = True
+            if self.inBeacon <= 0:
+                vertex= Vertex()
+                vertex.x = roundcoord(self.gps("x"))
+                vertex.y = roundcoord(self.gps("y"))
+                vertex.edges= {direction:0 for direction in directionMap}
+                
+                vertex.edges[inversedirectionMap[self.direction]] = 2
+                vertex.isDeadEnd = True
 
-            vertex.beacon = self.beacon
-            self.vertexList.append(vertex)
+                vertex.beacon = self.inBeacon
+                self.vertexList.append(vertex)
         return vertex
     
     def Decide(self):
@@ -280,14 +298,27 @@ class MyRob(CRobLinkAngs):
         global inversedirectionMap
         bol = self.adjustForward()
         once = 1
+
+        # if self.currentVertex.beacon >=0:
+        #     self.prevVertex = self.currentVertex
+            
         if bol == 1 :
             once = 0
             self.state = "orient"
-            print(f"Decide {self.currentVertex.id}: {self.currentVertex.edges} ")
+            #print(f"Decide {self.currentVertex.id}: {self.currentVertex.edges} ")
             
             decision = ""
-            
+
+
             if len(self.queue) > 0:
+
+                if self.prevVertex.beacon >=0:
+                    if all(direction in self.prevVertex.connects.keys() for direction in ["right","left"]) ^ all(direction in self.prevVertex.connects.keys() for direction in ["up","down"]):
+                        #!remove extra direction in pathfinding 
+                        print("Popped extra")
+                        self.queue.pop(0)
+                
+                
                 decision = self.queue.pop(0)
                 print("queue", self.queue)
                 self.direction = decision
@@ -316,10 +347,10 @@ class MyRob(CRobLinkAngs):
 
                 else:
                     self.state="pathfinding"
-                    
+
                     self.prevVertex.connects[self.direction] = self.currentVertex.id
                     self.currentVertex.connects[inversedirectionMap[self.direction]] = self.prevVertex.id
-                    
+                
                     if self.currentVertex not in self.vertexList:
                         self.vertexList.append(self.currentVertex)
                     else:
@@ -327,9 +358,9 @@ class MyRob(CRobLinkAngs):
                 
                     self.move("stop")
                     return
-            
+
             #append current vertex to self.vertexlist else update it
-            
+
             self.prevVertex.connects[self.direction] = self.currentVertex.id
             self.currentVertex.connects[inversedirectionMap[self.direction]] = self.prevVertex.id
 
@@ -339,11 +370,12 @@ class MyRob(CRobLinkAngs):
                 self.vertexList.append(self.currentVertex)
             else:
                 self.vertexList[self.vertexList.index(self.currentVertex)] = self.currentVertex
-                
 
-            self.direction = decision
+                self.direction = decision
+
             self.prevVertex = self.currentVertex
             self.currentVertex = None
+
     
     def pathfinding(self):
         #!find a vertex that has not been explored
@@ -354,11 +386,6 @@ class MyRob(CRobLinkAngs):
             if self.currentVertex.isDeadEnd:
                 print("dead end")
                 self.targetVertex = self.prevVertex
-                
-                #!remove this after prints are gone
-                queue=[inversedirectionMap[self.direction]]
-                
-                
                 self.queue=[inversedirectionMap[self.direction]]
             else:
                 for vertex in self.vertexList:
@@ -371,7 +398,6 @@ class MyRob(CRobLinkAngs):
 
         if len(self.queue)>0:
             print(f"Pathfinding to {self.targetVertex.id} {self.targetVertex.edges}")  
-            print(queue)
             print(self.queue)      
             self.direction = self.queue.pop(0)
             self.state="orient"
@@ -381,21 +407,21 @@ class MyRob(CRobLinkAngs):
             self.currentVertex = None
             
             CreateMap.generate(self.vertexList)
-            
+            print(f"BEACON {[vertex for vertex in self.vertexList if vertex.beacon >= 0]}")
             self.finish()
         self.prevVertex = self.currentVertex
         self.currentVertex = None
         
     def adjustForward(self):
+
         global distance
         global once
 
         if once==0:
             distance = math.sqrt((self.turnpoint[0] - self.gps("x"))**2 + (self.turnpoint[1] - self.gps("y"))**2)
-
+            #print(distance)
         if distance >=0.12:
             distance = math.sqrt((self.turnpoint[0] - self.gps("x"))**2 + (self.turnpoint[1] - self.gps("y"))**2)
-
         if distance < 0.1:
             self.readSensors()
             #check if has path forward of the vertex, update the vertex 
@@ -404,11 +430,13 @@ class MyRob(CRobLinkAngs):
                 return 1
             return 1
         
+        # prevDistance = distance
         walk = distance
         if walk > 0.03:
             walk = 0.03
             
         distance -= walk
+        #print(distance)
         if distance <=0:
             return 1
         self.driveMotors(walk,walk)
@@ -472,15 +500,25 @@ class MyRob(CRobLinkAngs):
             #if one of these sensors is "1" check if we´re near vertex
             #!change if beacon radius is not 2
             
-            if self.beacon >=0:
-                # vertex = Vertex()
-                # vertex.x = roundcoord(self.gps("x")+ 2*cos(directionMap[self.direction]))
-                # vertex.y = roundcoord(self.gps("y")+ 2*sin(directionMap[self.direction]))
-                # print("roundcoord")
-                # print(roundcoord(self.gps("x")+ 2*cos(directionMap[self.direction])))
-                # print(roundcoord(self.gps("y")+ 2*sin(directionMap[self.direction])))
-                print("----------------")
-                #14,-8
+            if self.inBeacon > 0:
+                
+                if self.inBeacon not in [vertex.beacon for vertex in self.vertexList]:
+                    beaconVertex= Vertex()
+                    beaconVertex.x = roundcoord(self.gps("x")+ cos(directionMap[self.direction]))
+                    beaconVertex.y = roundcoord(self.gps("y")+ sin(directionMap[self.direction]))
+                    beaconVertex.beacon = self.inBeacon
+                    print("CREATED BEACON")
+                    
+                    beaconVertex.connects[inversedirectionMap[self.direction]] = self.prevVertex.id
+                    self.vertexList.append(beaconVertex)
+                    
+                    #!this is possible
+                    self.currentVertex = beaconVertex
+                
+                    
+                
+                    
+                    
             
             if((self.measures.lineSensor[:2].count("1") >= 2) or self.measures.lineSensor[5:7].count("1") >=2):
                 self.state="vertexDiscovery"

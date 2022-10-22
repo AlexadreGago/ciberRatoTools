@@ -416,8 +416,7 @@ class MyRob(CRobLinkAngs):
                             self.queue = queue
 
         if len(self.queue)>0:
-            print(f"Pathfinding to {self.targetVertex.id} {self.targetVertex.edges}")  
-            print(queue)
+            print(f"Pathfinding to {self.targetVertex.id}, Movements : ")  
             print(self.queue)      
             self.direction = self.queue.pop(0)
             self.state="orient"

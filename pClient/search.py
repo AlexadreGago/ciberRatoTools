@@ -30,7 +30,7 @@ def build_graph(vertexlist):
 
 #find shortest path
 def find_shortest_path(graph, start, end, path=[]):
-    # print(path)
+    #print(path)
     path = path + [start]
     if start == end:
         return path
@@ -51,7 +51,7 @@ def directionqueue(vertexlist, start, end):
     graph=build_graph(vertexlist)
 
     shortest=find_shortest_path(graph, start, end)
-    print(shortest)
+    #print(shortest)
     if shortest is None:
         print(f"No path found {start} to {end}")
         return []
