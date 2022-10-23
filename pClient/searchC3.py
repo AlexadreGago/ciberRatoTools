@@ -21,8 +21,7 @@ class Vertex():
         return f"Vertex {self.id} at ({self.x},{self.y}), edges: {self.edges}, connects: {self.connects} \n"
 
 
-with open('beaconvertex.pkl', 'rb') as inp:
-    vertexlist = pickle.load(inp)
+
 
 
 def dijkstra(graph, start, end):
@@ -81,16 +80,28 @@ def pairwise(iterable):
     return zip(a, b)
 
 
+def get_path(vertexList):
+    beacon_ids = sorted([vertex.id for vertex in vertexlist if vertex.beacon != -1], key=lambda x: vertexlist[x].beacon)
+    beacon_ids.append(0)
+    path=[0]
+    for beacon_a, beacon_b in pairwise(beacon_ids):
+        graph= build_graph(vertexlist)
+        print(beacon_a, beacon_b)
+        path.extend(dijkstra(graph, beacon_a, beacon_b)[1:])
+    return path
 
-beacon_ids = [vertex.id for vertex in vertexlist if vertex.beacon != -1]
-beacon_ids.append(0)
 
-path=[]
-for beacon_a, beacon_b in pairwise(beacon_ids):
-    graph= build_graph(vertexlist)
-    print(beacon_a, beacon_b)
-    path.extend(dijkstra(graph, beacon_a, beacon_b))
+if __name__ == "__main__":
+    with open('beaconvertex.pkl', 'rb') as inp:
+        vertexlist = pickle.load(inp)
+        path=get_path(vertexlist)
+        
+        
+        distance=0
+        for vertex_a, vertex_b in pairwise(path):
+            distance += hammond_distance(vertexlist, vertex_a, vertex_b)
+        print(distance)
 
-
-print(path)
-
+        graph= build_graph(vertexlist)
+        print(graph)
+        print(vertexlist[0].connects)

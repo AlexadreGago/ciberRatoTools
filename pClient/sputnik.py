@@ -25,13 +25,13 @@ corrected = 1
 ############
 
 motorStrengthMap = {
-    "front": (0.15,0.15),
+    "front": (0.12,0.12),
     "frontslow": (0.05, 0.05),
     "backward": (-0.05,-0.05),
     "left": (-0.15,0.15),
     "right": (0.15,-0.15),
-    "slightLeft": (0.11,0.15),
-    "slightRight": (0.15,0.11),
+    "slightLeft": (0.08,0.12),
+    "slightRight": (0.12,0.08),
     "stop": (0,0)
 }
 
@@ -511,6 +511,11 @@ class MyRob(CRobLinkAngs):
                     print("CREATED BEACON")
                     
                     beaconVertex.connects[inversedirectionMap[self.direction]] = self.prevVertex.id
+                    
+                    #! update connection of previous vertex to this vertex, if its a "normal vertex" it will be overwritten
+                    self.prevVertex.connects[self.direction] = beaconVertex.id
+                    self.vertexList[self.vertexList.index(self.prevVertex)] = self.prevVertex
+                    
                     self.vertexList.append(beaconVertex)
                     
                     #!this is possible

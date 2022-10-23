@@ -21,14 +21,16 @@ class Vertex():
 def VertexPathToFile(vertexlist):
     
     prevVertex = None
-    #[0, 1, 4, 5, 6, 7, 8, 43, 42, 39, 32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 39, 38, 38, 39, 42, 43, 44, 6, 5, 4, 1, 0]    
-
-    for vertex in vertexlist[19:21]:
-        print(vertex)
+    vertices=[0, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 39, 38, 38, 39, 42, 43, 44, 6, 5, 4, 1, 0]   
+    vertexlist2 = []
+    for v in vertices:
+        vertexlist2.append(vertexlist[v])
+    print(vertexlist2)
+    for vertex in vertexlist2:
+        print(vertex.x, vertex.y)
       
         
         if prevVertex is not None and vertex.x == prevVertex.x :
-            print("x")
             #print(prevVertex.x, prevVertex.y,"\n", vertex.x, vertex.y)
             
             if prevVertex is None:
@@ -36,24 +38,19 @@ def VertexPathToFile(vertexlist):
             if prevVertex.y < vertex.y:
                 for i in range (vertex.y - prevVertex.y):
                     if i % 2 == 0:
-                        print("LongX")
                         with open ("path.txt","a") as file:
-                            print(prevVertex.x)
                             
-                            file.write("("+str(prevVertex.x)+","+str(prevVertex.y+i)+")\n")
+                            file.write(str(prevVertex.x)+" "+str(prevVertex.y+i)+"\n")
             #prev:10
             #vertex:0
             else:
                 for i in range(prevVertex.y - vertex.y):
                     if i % 2 == 0:
-                        print("LongX")
                         with open ("path.txt","a") as file:
-                            print(prevVertex.x)
-                            file.write("("+str(prevVertex.x)+","+str(prevVertex.y-i)+")\n")
+                            file.write(str(prevVertex.x)+" "+str(prevVertex.y-i)+"\n")
             
         
         elif prevVertex is not None and  vertex.y == prevVertex.y and prevVertex is not None:
-            print("y")
             #print(prevVertex.x, prevVertex.y,"\n", vertex.x, vertex.y)
             
             if prevVertex is None:
@@ -62,17 +59,17 @@ def VertexPathToFile(vertexlist):
             if prevVertex.x < vertex.x:
                 for i in range (vertex.x - prevVertex.x):
                     if i %2 == 0:
-                        print("LongY")
                         with open ("path.txt","a") as file:
-                            file.write("("+str(prevVertex.x+i)+","+str(prevVertex.y)+")\n")
+                            file.write(str(prevVertex.x+i)+" "+str(prevVertex.y)+"\n")
             else:
                 for i in range (prevVertex.x - vertex.x):
                     if i %2 == 0:
-                        print("LongY")
                         with open ("path.txt","a") as file:
-                            file.write("("+str(prevVertex.x-i)+","+str(prevVertex.y)+")\n")
+                            file.write(str(prevVertex.x-i)+" "+str(prevVertex.y)+"\n")
                             
         prevVertex = vertex
+    with open ("path.txt","a") as file:
+        file.write(str(vertexlist2[-1].x)+" "+str(vertexlist2[-1].y)+"\n")
 
 
 
