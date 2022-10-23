@@ -1,6 +1,5 @@
 from operator import index
 import sys
-import time
 import math
 from croblink import *
 from math import *
@@ -9,6 +8,7 @@ from pprint import pprint
 import itertools
 from collections import Counter
 import CreateMap
+import pickle
 import search
 CELLROWS=7
 CELLCOLS=14
@@ -405,7 +405,8 @@ class MyRob(CRobLinkAngs):
             print("Im done")
             self.prevVertex = self.currentVertex
             self.currentVertex = None
-            
+            with open("beaconvertex.pkl", "wb") as f:
+                pickle.dump(self.vertexList, f, pickle.HIGHEST_PROTOCOL)
             CreateMap.generate(self.vertexList)
             print(f"BEACON {[vertex for vertex in self.vertexList if vertex.beacon >= 0]}")
             self.finish()

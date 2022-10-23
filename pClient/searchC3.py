@@ -1,13 +1,13 @@
-from unicodedata import name
 import pickle
 import itertools
+
 
 class Vertex():
     id_iter = itertools.count()
     def __init__(self, x=-1, y=-1):
         self.x = x
         self.y = y
-        # 0 unknown; 1 exists but unexplred ; 2 -Exists and explored ; 3- Unexistant;
+        # 0 unknown; 1 exists but unexplred ; 2 -Exists and explored ;
         self.edges = {"up" : 0, 
                  "down" : 0, 
                  "left" : 0, 
@@ -15,19 +15,15 @@ class Vertex():
         self.connects = {}
         self.id = next(Vertex.id_iter)
         self.isDeadEnd = False
+        self.beacon = -1
+
     def __repr__(self) -> str:
         return f"Vertex {self.id} at ({self.x},{self.y}), edges: {self.edges}, connects: {self.connects} \n"
-        #return f"{self.id}:{self.edges}" if not self.deadEnd else f"{self.id} is deadEnd, connects to {self.connects}"
-
-def build_graph(vertexlist):
-    graph = {}
-    for vertex in vertexlist:
-        graph[vertex.id]={ id : hammond_distance( vertexlist, vertex.id , id  ) for id in vertex.connects.values() }
-    return graph
 
 
-def hammond_distance(vertexlist, id1, id2):
-    return abs(vertexlist[ id1 ].x - vertexlist[id2].x) + abs(vertexlist[id1].y - vertexlist[id2].y)
+with open('beaconvertex.pkl', 'rb') as inp:
+    vertexlist = pickle.load(inp)
+
 
 def dijkstra(graph, start, end):
     shortest_distance = {}
@@ -67,24 +63,34 @@ def dijkstra(graph, start, end):
    
     if shortest_distance[end] != infinity:
         return path
-      
-def directionqueue(vertexlist, start, end):
-    graph=build_graph(vertexlist)
 
-    shortest=dijkstra(graph, start, end)
-    #print(shortest)
-    if shortest is None:
-        return []
-    directions = []
-    for i in range(len(shortest)-1):
-        for key, value in vertexlist[shortest[i]].connects.items():
-            if value == shortest[i+1]:
-                directions.append(key)
-    return directions
 
-if __name__ == "__main__":
-    with open('beaconvertex.pkl', 'rb') as inp:
-        vertexlist = pickle.load(inp)
-        
+def hammond_distance(vertexlist, id1, id2):
+    return abs(vertexlist[ id1 ].x - vertexlist[id2].x) + abs(vertexlist[id1].y - vertexlist[id2].y)
+
+
+def build_graph(vertexlist):
+    graph = {}
+    for vertex in vertexlist:
+        graph[vertex.id]={ id : (weight := hammond_distance( vertexlist, vertex.id , id  ) ) for id in vertex.connects.values() }
+    return graph
+
+def pairwise(iterable):
+    a, b = itertools.tee(iterable)
+    next(b, None)
+    return zip(a, b)
+
+
+
+beacon_ids = [vertex.id for vertex in vertexlist if vertex.beacon != -1]
+beacon_ids.append(0)
+
+path=[]
+for beacon_a, beacon_b in pairwise(beacon_ids):
     graph= build_graph(vertexlist)
-    print(directionqueue(vertexlist, 1, 15))
+    print(beacon_a, beacon_b)
+    path.extend(dijkstra(graph, beacon_a, beacon_b))
+
+
+print(path)
+
