@@ -1,4 +1,4 @@
-import pickle
+#import pickle
 import itertools
 
 
@@ -18,7 +18,7 @@ class Vertex():
         self.beacon = -1
 
     def __repr__(self) -> str:
-        return f"Vertex {self.id} at ({self.x},{self.y}), edges: {self.edges}, connects: {self.connects} \n"
+        return f"Vertex {self.id} at ({self.x},{self.y}), edges: {self.edges}, connects: {self.connects}, beacon: {self.beacon} \n"
 
 
 
@@ -56,7 +56,7 @@ def dijkstra(graph, start, end):
             path.insert(0,currentNode)
             currentNode = predecessor[currentNode]
         except KeyError:
-            print('Path not reachable')
+            print(f'Path not reachable {start} {end}')
             break
     path.insert(0,start)
    
@@ -81,27 +81,52 @@ def pairwise(iterable):
 
 
 def get_path(vertexList):
-    beacon_ids = sorted([vertex.id for vertex in vertexlist if vertex.beacon != -1], key=lambda x: vertexlist[x].beacon)
-    beacon_ids.append(0)
-    path=[0]
-    for beacon_a, beacon_b in pairwise(beacon_ids):
-        graph= build_graph(vertexlist)
-        print(beacon_a, beacon_b)
-        path.extend(dijkstra(graph, beacon_a, beacon_b)[1:])
-    return path
+    beacon_ids = [vertex.id for vertex in vertexList if vertex.beacon > 0]
+    
+    permutations = itertools.permutations(beacon_ids)
+    optimal=[]
+    min = 9999999
+    for permutation in list(permutations):
+        distance=0
+        permutation = list(permutation)
+        path = [0]
+        permutation.insert(0,0)
+        permutation.append(0)
+        for pair in pairwise(permutation):
+            graph=build_graph(vertexList)
+            path.extend(dijkstra(graph, pair[0], pair[1])[1:])
+        for vertex_a, vertex_b in pairwise(path):
+            distance += hammond_distance(vertexList, vertex_a, vertex_b)
+        if distance < min:
+            min = distance
+            optimal = path
+
+    return optimal
+    # path=[0]
+    # for beacon_a, beacon_b in pairwise(beacon_ids):
+    #     graph= build_graph(vertexlist)
+        
+    #     path.extend(dijkstra(graph, beacon_a, beacon_b)[1:])
+    # return path
 
 
 if __name__ == "__main__":
-    with open('beaconvertex.pkl', 'rb') as inp:
-        vertexlist = pickle.load(inp)
-        path=get_path(vertexlist)
+    
+    print("this is a module")
+    
+    
+    # with open('beaconvertex.pkl', 'rb') as inp:
+    #     vertexlist = pickle.load(inp)
+    #     path=get_path(vertexlist)
+    #     #print(vertexlist)
         
-        
-        distance=0
-        for vertex_a, vertex_b in pairwise(path):
-            distance += hammond_distance(vertexlist, vertex_a, vertex_b)
-        print(distance)
+    #     distance=0
+    #     for vertex_a, vertex_b in pairwise(path):
+    #         distance += hammond_distance(vertexlist, vertex_a, vertex_b)
+    #     print(distance)
+    #     print(path)
 
-        graph= build_graph(vertexlist)
-        print(graph)
-        print(vertexlist[0].connects)
+
+    #     graph= build_graph(vertexlist)
+        #print(graph)
+        #print(vertexlist[0].connects)

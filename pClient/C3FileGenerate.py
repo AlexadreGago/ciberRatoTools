@@ -21,7 +21,7 @@ class Vertex():
 def VertexPathToFile(vertexlist):
     
     prevVertex = None
-    vertices=[0, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 39, 38, 38, 39, 42, 43, 44, 6, 5, 4, 1, 0]   
+    vertices=[0, 59, 58, 57, 16, 17, 18, 19, 20, 19, 21, 22, 24, 26, 28, 29, 30, 31, 32, 51, 50, 49, 46, 45, 44, 43, 36, 37, 38, 14, 41, 7, 6, 5, 4, 3, 2, 1, 0]
     vertexlist2 = []
     for v in vertices:
         vertexlist2.append(vertexlist[v])
@@ -50,7 +50,7 @@ def VertexPathToFile(vertexlist):
                             file.write(str(prevVertex.x)+" "+str(prevVertex.y-i)+"\n")
             
         
-        elif prevVertex is not None and  vertex.y == prevVertex.y and prevVertex is not None:
+        elif prevVertex is not None and  vertex.y == prevVertex.y:
             #print(prevVertex.x, prevVertex.y,"\n", vertex.x, vertex.y)
             
             if prevVertex is None:

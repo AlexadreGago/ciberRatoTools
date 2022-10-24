@@ -9,6 +9,7 @@ import itertools
 from collections import Counter
 import CreateMap
 import pickle
+import c3path
 import search
 CELLROWS=7
 CELLCOLS=14
@@ -192,8 +193,8 @@ class MyRob(CRobLinkAngs):
             #check if the vertex already exists, if it doesn´t, detect it and create it, if None is returned must have been a mistake
             vertex = self.checkNearVertex()
             if vertex:
-                print("MOTHERFUCKING BEACON", vertex) if vertex.beacon >= 0 else None
-                print(f"CURRENTE VERTEX {self.currentVertex}")
+                #print("MOTHERFUCKING BEACON", vertex) if vertex.beacon >= 0 else None
+                #print(f"CURRENTE VERTEX {self.currentVertex}")
                 self.state = "decision"
                 #!shenanigans for beacons in straight line currentvertex should always be None unless it was a straight line beacon
                 if self.currentVertex and self.currentVertex.beacon >= 0 and not vertex.beacon>=0:
@@ -405,9 +406,48 @@ class MyRob(CRobLinkAngs):
             print("Im done")
             self.prevVertex = self.currentVertex
             self.currentVertex = None
-            with open("beaconvertex.pkl", "wb") as f:
-                pickle.dump(self.vertexList, f, pickle.HIGHEST_PROTOCOL)
-            CreateMap.generate(self.vertexList)
+
+            #!FIX for edge case where starting position is a beacon and not a real vertex
+            if self.vertexList[0].edges == {"up" : 0,  "down" : 0,  "left" : 0, "right" : 0}: # check if straight line
+                
+                connected_vertex=self.vertexList[list(self.vertexList[0].connects.values())[0]]
+                if self.vertexList[0].y == connected_vertex.y:
+                    if self.vertexList[0].x - connected_vertex.x <0:
+                        #"o robo esta virado para a direita"
+                        direction="right"
+                    else:
+                        #"o robo esta virado para a esquerda" 
+                        direction="left"
+                if self.vertexList[0].x == connected_vertex.x:
+                    if self.vertexList[0].y - connected_vertex.y <0:
+                        #"o robo esta virado para cima"
+                        direction="up"
+
+                        
+                    else:
+                        #"o robo esta virado para baixo"
+                        direction="down"
+                    
+                second_vertex=self.vertexList[connected_vertex.connects[inversedirectionMap[direction]]]
+                
+                # print("---before-----")
+                # print(connected_vertex)
+                # print(self.vertexList[0])
+                # print(second_vertex)
+                # print("--------")
+                # self.vertexList[0].connects[inversedirectionMap[direction]]=second_vertex.id
+                # connected_vertex.connects[inversedirectionMap[direction]]=0
+                # second_vertex.connects[direction] = 0
+                # print("----after----")
+                # print(connected_vertex)
+                # print(self.vertexList[0])
+                # print(second_vertex)
+                # print("--------")
+           
+            # with open("beaconvertex.pkl", "wb") as f:
+            #     pickle.dump(self.vertexList, f, pickle.HIGHEST_PROTOCOL)
+            c3path.Generate_path_file(self.vertexList)
+            #CreateMap.generate(self.vertexList)
             print(f"BEACON {[vertex for vertex in self.vertexList if vertex.beacon >= 0]}")
             self.finish()
         self.prevVertex = self.currentVertex
@@ -428,10 +468,12 @@ class MyRob(CRobLinkAngs):
             #check if has path forward of the vertex, update the vertex 
             if (self.measures.lineSensor[3] == "1" or self.measures.lineSensor[4] == "1" or self.measures.lineSensor[2] == "1"):
                 self.currentVertex.edges[self.direction] = 1 if self.currentVertex.edges[self.direction] == 0 else self.currentVertex.edges[self.direction]
-                return 1
-            return 1
+                
         
-        # prevDistance = distance
+        #if distance> prevDistance:
+            
+        #prevDistance = distance
+        
         walk = distance
         if walk > 0.03:
             walk = 0.03
@@ -444,7 +486,11 @@ class MyRob(CRobLinkAngs):
         return 0
     
     def orient(self, direction):
-        
+        """
+            Function used to turn the robot to the desired direction.
+            
+            Returns integer (0-unfinished or 1-finished)
+        """
         global directionMap
         degrees = directionMap[direction]
         #align to this number
@@ -462,10 +508,16 @@ class MyRob(CRobLinkAngs):
         power = round(math.radians(remaining) -  (0.5 * self.previouspowerLR[1]) + (0.5 * self.previouspowerLR[0]), 2)
         
         #low max power to avoid overshooting by noise
-        if power > 0.07:
-            power = 0.07
-        elif power < -0.07:
-            power = -0.07
+        if abs(remaining) > 45:
+            if power > 0.15:
+                power = 0.15
+            elif power < -0.15:
+                power = -0.15
+        else:
+            if power > 0.07:
+                power = 0.07
+            elif power < -0.07:
+                power = -0.07
         
         self.previouspowerLR = (-power, power)
         self.driveMotors(-power, power)
@@ -500,7 +552,7 @@ class MyRob(CRobLinkAngs):
             #go back if no line detected
             #if one of these sensors is "1" check if we´re near vertex
             #!change if beacon radius is not 2
-            
+            #print(self.inBeacon )
             if self.inBeacon > 0:
                 
                 if self.inBeacon not in [vertex.beacon for vertex in self.vertexList]:
@@ -508,7 +560,7 @@ class MyRob(CRobLinkAngs):
                     beaconVertex.x = roundcoord(self.gps("x")+ cos(directionMap[self.direction]))
                     beaconVertex.y = roundcoord(self.gps("y")+ sin(directionMap[self.direction]))
                     beaconVertex.beacon = self.inBeacon
-                    print("CREATED BEACON")
+                    #print("CREATED BEACON")
                     
                     beaconVertex.connects[inversedirectionMap[self.direction]] = self.prevVertex.id
                     

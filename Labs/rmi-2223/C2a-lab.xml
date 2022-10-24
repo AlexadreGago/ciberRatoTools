@@ -1,6 +1,15 @@
 <Lab Name="RMI-2223 C2 Lab" Height="14" Width="28">
 		<Beacon X="24" Y="2.0" Height="4.0"/>
 		<Target X="24" Y="2.0" Radius="1.0"/>
+
+		<Beacon X="4" Y="10.0" Height="4.0"/>
+		<Target X="4" Y="10.0" Radius="1.0"/>
+
+		<Beacon X="14" Y="8.0" Height="4.0"/>
+		<Target X="14" Y="8.0" Radius="1.0"/>
+
+		<Beacon X="22" Y="8.0" Height="4.0"/>
+		<Target X="22" Y="8.0" Radius="1.0"/>
 		<Row  Pos="12" Height="0.0" Pattern="                                         "  />
 		<Row  Pos="11" Height="0.0" Pattern="  +  +  +  +--+--+--+--+--+--+--+--+--+  "  />
 		<Row  Pos="10" Height="0.0" Pattern="     |     |  |        |     |        |  "  />
