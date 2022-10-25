@@ -102,7 +102,7 @@ class MyRob(CRobLinkAngs):
 
     #offset gps with initialpos
     def gps(self, dir):
-        return self.measures.x - self.initialPos[0] if dir == "x" else self.measures.y - self.initialPos[1]
+        return round(self.measures.x - self.initialPos[0],2) if dir == "x" else round(self.measures.y - self.initialPos[1],2)
     
     def realposition(self):
     #   return [ self.gps("x") + (0.5 * math.cos(math.radians(self.measures.compass))), self.gps("y") + (0.5 * math.sin(math.radians(self.measures.compass)))]
@@ -306,7 +306,7 @@ class MyRob(CRobLinkAngs):
         if bol == 1 :
             once = 0
             self.state = "orient"
-            #print(f"Decide {self.currentVertex.id}: {self.currentVertex.edges} ")
+            print(f"Decide {self.currentVertex.id}: {self.currentVertex.edges} ")
             
             decision = ""
 
@@ -457,28 +457,40 @@ class MyRob(CRobLinkAngs):
 
         global distance
         global once
-
+        # print("----------------")
+        
+        # print("DistanceAnte",distance)
         if once==0:
-            distance = math.sqrt((self.turnpoint[0] - self.gps("x"))**2 + (self.turnpoint[1] - self.gps("y"))**2)
+            distance = round(math.sqrt((self.turnpoint[0] - self.gps("x"))**2 + (self.turnpoint[1] - self.gps("y"))**2),2)
             #print(distance)
-        if distance >=0.12:
-            distance = math.sqrt((self.turnpoint[0] - self.gps("x"))**2 + (self.turnpoint[1] - self.gps("y"))**2)
-        if distance < 0.1:
+        if distance >=0.1:
+            distance = round(math.sqrt((self.turnpoint[0] - self.gps("x"))**2 + (self.turnpoint[1] - self.gps("y"))**2),2)
+        if distance < 0.05:
             self.readSensors()
             #check if has path forward of the vertex, update the vertex 
             if (self.measures.lineSensor[3] == "1" or self.measures.lineSensor[4] == "1" or self.measures.lineSensor[2] == "1"):
                 self.currentVertex.edges[self.direction] = 1 if self.currentVertex.edges[self.direction] == 0 else self.currentVertex.edges[self.direction]
-                
-        
         #if distance> prevDistance:
-            
         #prevDistance = distance
+            return 1
         
         walk = distance
-        if walk > 0.03:
-            walk = 0.03
-            
-        distance -= walk
+        if once == 0:
+            walk = 0.15
+        else:
+            if distance > 0.1:
+                walk = 0.05
+            else:
+                walk = 0.01
+        # if distance < 0.2:
+        #     walk = 0.03
+        # if distance < 0.1:
+        #     walk = 0.01
+        
+        # print("walk",walk)
+        # print("onde",once)
+        distance = distance - walk
+        # print("distanceDps",distance)
         #print(distance)
         if distance <=0:
             return 1
