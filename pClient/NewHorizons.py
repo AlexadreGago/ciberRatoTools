@@ -16,7 +16,6 @@ CELLCOLS=14
 once =0
 distance = 5
 
-
 motorStrengthMap = {
     "front": (0.12,0.12),
     "frontslow": (0.05, 0.05),
@@ -143,7 +142,6 @@ class MyRob(CRobLinkAngs):
             None
             
         """
-
         self.driveMotors(motorStrengthMap[direction][0], motorStrengthMap[direction][1])
     
     def setMap(self, labMap):
@@ -269,38 +267,46 @@ class MyRob(CRobLinkAngs):
     def checkNearVertex(self):
         """ Function to check if the robot is near a previously discovered vertex
 
-        It check the already created vertexes and if near one it returns it.
-        If no near vertex is found detectVertex() is called to create a new vertex. 
+        Checks if the robot is near a previously discovered vertex, if it is, it returns the vertex, if not, it calls the function to detect a new vertex
+        Equivalent to:
+            for vertex in self.vertexList:
+                if vertex.x == round(self.gps("x"))and vertex.y == round(self.gps("y")):
+                    vertex.edges[inversedirectionMap[self.direction]] = 2
+                    return vertex
+            return self.detectVertex()
 
         Args:
             None
+        
         Returns:
             vertex: vertex object
         """
-        #if any vertice is within 0.5m of the current position, return that vertex
-        for vertex in self.vertexList:
 
-            if vertex.x == round(self.gps("x"))and vertex.y == round(self.gps("y")):
-                vertex.edges[inversedirectionMap[self.direction]] = 2
-                return vertex
-        
-        #if vertex is not found nearby, must be a new one
-        return self.detectVertex()
-            
+        vertex = [vertex for vertex in self.vertexList if vertex.x == round(self.gps("x"))and vertex.y == round(self.gps("y"))]
+        if vertex:
+            return vertex[0]
+        else:
+            #if vertex is not found nearby, must be a new one
+            return self.detectVertex()
+    
     def detectVertex(self):
-        """
-        Function that creates a new vertex rounded to the nearest power of 2, reading the robot sensors and putting the correct values in its edges.
-        If inside a Beacon no vertex will be created because it wal already created in another function, it will only update it with the correct values.
-        If the seasons don't detect anything, it means the robot is near a dead end and it will create a vertex signalizing that he is a dead end.
+        """ Function to create and configure a new vertex
 
-        Returns: vertex object
+        Function that creates a new vertex and updates its edges according to the direction the robot is facing and the line sensors
+        it appends the new vertex to the vertexList
+
+        If sensors do not detect anything, then we're at a dead end, so we return a vertex with only 1 edge (the one we came from)
+
+        Args:
+            None
+
+        Returns: 
+            vertex: vertex object
         """
-        #print("detectVertex")
         global inversedirectionMap
         #!using detect sensors
         if self.detectedsensors[0] == "1" or self.detectedsensors[6] == "1":
             vertex = Vertex()
-
             vertex.x = roundcoord(self.gps("x"))
             vertex.y = roundcoord(self.gps("y"))
             
@@ -309,8 +315,7 @@ class MyRob(CRobLinkAngs):
                     vertex.edges["up"] = 1
                 if self.detectedsensors[6] == "1":
                     vertex.edges["down"] = 1
-                
-                #explored we just came from there
+
                 vertex.edges["left"] = 2
                 
             elif self.direction == "left":
@@ -318,19 +323,15 @@ class MyRob(CRobLinkAngs):
                     vertex.edges["down"] = 1    
                 if self.detectedsensors[6] == "1":
                     vertex.edges["up"] = 1
-                
-                #explored we just came from there    
+
                 vertex.edges["right"] = 2
     
-            
             elif self.direction == "up":
-                
                 if self.detectedsensors[0] == "1":
                     vertex.edges["left"] = 1
                 if self.detectedsensors[6] == "1":
                     vertex.edges["right"] = 1
-                    
-                #explored we just came from there
+
                 vertex.edges["down"] = 2
             
             elif self.direction == "down":
@@ -338,28 +339,34 @@ class MyRob(CRobLinkAngs):
                     vertex.edges["right"] = 1
                 if self.detectedsensors[6] == "1":
                     vertex.edges["left"] = 1
-                
-                #explored we just came from there         
-                vertex.edges["up"] = 2
-                
-            self.vertexList.append(vertex)
 
+                vertex.edges["up"] = 2
             
-            return vertex
+            self.vertexList.append(vertex)
+            
         else:
             vertex= Vertex()
             vertex.x = roundcoord(self.gps("x"))
             vertex.y = roundcoord(self.gps("y"))
             vertex.edges= {direction:0 for direction in directionMap}
-            print(vertex.edges)
             vertex.edges[inversedirectionMap[self.direction]] = 2
             vertex.isDeadEnd = True
             self.vertexList.append(vertex)
         return vertex
     
     def Decide(self):
-        """
-        Service used to decide the next direction to take when nearing a vertex and turning the robot in that direction.
+        """ Function to decide where to turn next
+        First we adjust the center of the robot to be on top of the vertex.
+        Then we check if we have directions in the queue, if we do, we pop the first one and turn to that direction.
+        If we don't, decide which direction to turn to and set the state to "orient" and update vertex edges and connections
+        if no direction is available, set the state to pathfinding
+        
+        Args:
+            None
+        
+        Returns:
+            None
+        
         """
         global once
         global inversedirectionMap
@@ -369,9 +376,7 @@ class MyRob(CRobLinkAngs):
             once = 0
             self.state = "orient"
             print(f"Decide {self.currentVertex.id}: {self.currentVertex.edges} ")
-            
             decision = ""
-    
             if len(self.queue) > 0:
                 decision = self.queue.pop(0)
                 print("queue", self.queue)
@@ -430,9 +435,15 @@ class MyRob(CRobLinkAngs):
 
     
     def pathfinding(self):
-        """
-        when the robot is near a vertex with every edge explored, this function is called to search a path that leads to a vertex that has unexplored edges.
-        If there isn't a unexplored edge, the robot stops moving,ends and generates the optimal path that connects all beacons.
+        """ Function to determine the target vertex and find the shortest path to it
+        First it checks if the current vertex is a dead end, if it is, set the queue to the direction we came from
+        If it's not a dead end, it finds the closest vertex that has an unexplored edge and set it as the target vertex and updates the queue to the shortest path to it
+        If no unexplored edges are found, the robot is done exploring, it generates the map file and it calls self.finish
+        Args:
+            None
+        
+        Returns:
+            None
         """
         #!find a vertex that has not been explored
         global inversedirectionMap
@@ -440,13 +451,7 @@ class MyRob(CRobLinkAngs):
         if self.targetVertex == None:
 
             if self.currentVertex.isDeadEnd:
-                print("dead end")
                 self.targetVertex = self.prevVertex
-                
-                #!remove this after prints are gone
-                queue=[inversedirectionMap[self.direction]]
-                
-                
                 self.queue=[inversedirectionMap[self.direction]]
             else:
                 for vertex in self.vertexList:
@@ -456,10 +461,7 @@ class MyRob(CRobLinkAngs):
                         if len(queue) < shortestpath:
                             shortestpath = len(queue)
                             self.queue = queue
-
-        if len(self.queue)>0:
-            print(f"Pathfinding to {self.targetVertex.id}, Movements : ")  
-            print(self.queue)      
+        if len(self.queue)>0: 
             self.direction = self.queue.pop(0)
             self.state="orient"
         else:
@@ -474,10 +476,13 @@ class MyRob(CRobLinkAngs):
         self.currentVertex = None
         
     def adjustForward(self):
-        """
-            Function that adjust the robot position to be near the exact verter of a vertex.
+        """Function that adjust the robot position to be near the exact center of a vertex.
 
-            Return: integer (0 - unfinished or 1 - finished)
+        Args:
+            None
+        Returns:
+            integer: (0 - unfinished or 1 - finished)
+        
         """
         global distance
         global once
@@ -511,17 +516,17 @@ class MyRob(CRobLinkAngs):
         self.driveMotors(walk,walk)
         return 0
     def orient(self, direction):
-        """
-            Function used to turn the robot to the desired direction.
+        """ Function used to turn the robot to the desired direction.
 
-            Returns integer (0-unfinished or 1-finished)
+        Args:
+            direction (string):the direction to turn to
+
+        Returns:
+            int: 0 - unfinished or 1 - finished
+
         """
         global directionMap
         degrees = directionMap[direction]
-        #align to this number
-        
-        
-        #angle difference between target and now
         remaining = min(degrees-self.measures.compass, degrees-self.measures.compass+360, degrees-self.measures.compass-360, key=abs)
         
         #acceptable in this range
@@ -546,14 +551,12 @@ class MyRob(CRobLinkAngs):
         
         self.previouspowerLR = (-power, power)
         self.driveMotors(-power, power)
-        
         return 0
 
-
-    
     def wander(self):
-        """
-            Function used in the return state that handles the default movement of the robot ad well as handling beacons and altering states.
+        """Function used to make the robot go forward until it detects a vertex or a wall.
+        It then sets the state to "vertexDiscovery"
+            
         """
         global inversedirectionMap
             
@@ -576,36 +579,25 @@ class MyRob(CRobLinkAngs):
             self.driveMotors(0.0,0.1)
         #########################################
         else:
-            #locked in turn
-            #if all 7 sensors report "1"
-            #go back if no line detected
-            #if one of these sensors is "1" check if we´re near vertex
+            #if these sensors are "1" check if we´re near vertex
             if((self.measures.lineSensor[:2].count("1") >= 2) or self.measures.lineSensor[5:7].count("1") >=2):
                 #print("near vertex ", self.measures.lineSensor)
                 self.state="vertexDiscovery"
                 self.detectedsensors = self.measures.lineSensor
-             
                 self.move("stop")
-           
-        
             elif(self.measures.lineSensor[5]=="1"):
                 self.move("slightRight")
-
             #turn slightly left if right edge detected
             elif(self.measures.lineSensor[1]=="1"):
                 self.move("slightLeft")
-                
             #go front if 3 middle sensors detect line
             elif (self.measures.lineSensor[3]=="1") :
                 self.move("front")
-                
-            elif self.measures.lineSensor == ["0","0","0","0","0","0","0"]:
-                #print("near vertex ", self.measures.lineSensor)
-            
+
+            elif self.measures.lineSensor == ["0","0","0","0","0","0","0"]: 
                 self.state="vertexDiscovery"
                 self.detectedsensors = self.measures.lineSensor
                 self.move("stop")
-            
             else:
                 self.move("front")
 class Map():
@@ -634,8 +626,6 @@ class Map():
                            None
                
            i=i+1
-
-
 rob_name = "pClient1"
 host = "localhost"
 pos = 1

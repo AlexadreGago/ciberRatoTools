@@ -19,6 +19,9 @@ motorStrengthMap = {
 }
 lastdecision = "stop"
 class MyRob(CRobLinkAngs):
+    """The robot class
+
+    """	
     def __init__(self, rob_name, rob_id, angles, host):
         CRobLinkAngs.__init__(self, rob_name, rob_id, angles, host)
         
@@ -33,6 +36,15 @@ class MyRob(CRobLinkAngs):
             print(''.join([str(l) for l in l]))
 
     def run(self):
+        """the main loop of the robot
+        This function contains the main logic of the robot, represented by its state.
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
         if self.status != 0:
             print("Connection refused or error")
             quit()
@@ -41,7 +53,6 @@ class MyRob(CRobLinkAngs):
         stopped_state = 'run'
 
         while True:
-            #print("State: ", state)
             self.readSensors()
 
             if self.measures.endLed:
@@ -76,19 +87,23 @@ class MyRob(CRobLinkAngs):
                 self.wander()
             
     def move(self, direction):
+        """Function to move the robot in a given direction with a set strength, loops prevention and noise reduction
+
+        Args:
+            direction (String): Direction the robot is facing currently (front, left, right, backward)
+        """
         global lastdecision
-        print(self.measures.compass)
         #try to prevent looping between front and back
         if lastdecision == "backward" and direction == "front":
             self.driveMotors(motorStrengthMap["frontslow"][0],motorStrengthMap["frontslow"][1])
             lastdecision = "front"
             
-            print("%20s" % ("Anti front/back loop"), self.measures.lineSensor)
+            # print("%20s" % ("Anti front/back loop"), self.measures.lineSensor)
             return
         elif lastdecision == "backward" and (direction == "left" or direction == "right"):
             self.driveMotors(motorStrengthMap[direction][0],motorStrengthMap[direction][1])
             lastdecision = direction
-            print("%20s" % ("Anti front/back loop"), self.measures.lineSensor)
+            # print("%20s" % ("Anti front/back loop"), self.measures.lineSensor)
             return
             
             
@@ -100,7 +115,7 @@ class MyRob(CRobLinkAngs):
                     self.driveMotors(motorStrengthMap["frontslow"][0], motorStrengthMap["frontslow"][1])
                     lastdecision = "front"
                    
-                    print("%20s" % ("Anti left/right loop"), self.measures.lineSensor)
+                    # print("%20s" % ("Anti left/right loop"), self.measures.lineSensor)
                     
                 
                 #after noise prevention, turn left or right
@@ -108,7 +123,7 @@ class MyRob(CRobLinkAngs):
                     self.driveMotors(motorStrengthMap[direction][0], motorStrengthMap[direction][1])
                     lastdecision = direction
                     
-                    print("%20s" % ("Turn "+ direction +" no noise"), self.measures.lineSensor)
+                    # print("%20s" % ("Turn "+ direction +" no noise"), self.measures.lineSensor)
                     
             else:
                 #try to detect certain intersection, else assume its noise
@@ -116,21 +131,21 @@ class MyRob(CRobLinkAngs):
                     self.driveMotors(motorStrengthMap[direction][0], motorStrengthMap[direction][1])
                     lastdecision = direction
                     
-                    print("%20s" % ("Turn "+ direction + " certain"), self.measures.lineSensor)
+                    # print("%20s" % ("Turn "+ direction + " certain"), self.measures.lineSensor)
                    
                 else:
                 #noise prevention
                     if lastdecision == "backward" :
                         self.driveMotors(motorStrengthMap["frontslow"][0], motorStrengthMap["frontslow"][1])
-                        print("%20s" % ("Back/Noise loop Prevention"), self.measures.lineSensor)
+                        # print("%20s" % ("Back/Noise loop Prevention"), self.measures.lineSensor)
                     else:
-                        print("%20s" % ("Noise Prevention"), self.measures.lineSensor)
+                        # print("%20s" % ("Noise Prevention"), self.measures.lineSensor)
                         self.driveMotors(motorStrengthMap["front"][0], motorStrengthMap["front"][1])
                         lastdecision = direction
     
         
         else:
-            print("%20s" % ("Turn "+ direction), self.measures.lineSensor)
+            # print("%20s" % ("Turn "+ direction), self.measures.lineSensor)
             self.driveMotors(motorStrengthMap[direction][0], motorStrengthMap[direction][1])
             lastdecision = direction
     
@@ -142,8 +157,9 @@ class MyRob(CRobLinkAngs):
         
 
     def wander(self):
-        #print("LAST",lastLineSensors)
-        
+        """Function used to decide the robot movement
+            
+        """
         #check if collision against wall
         center_id = 0
         left_id = 1
