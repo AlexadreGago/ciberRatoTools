@@ -4,10 +4,7 @@ import math
 from croblink import *
 from math import *
 import xml.etree.ElementTree as ET
-from pprint import pprint
 import itertools
-from collections import Counter
-import CreateMap
 import pickle
 import c3path
 import search
@@ -100,15 +97,12 @@ class MyRob(CRobLinkAngs):
 
         self.inBeacon = -1
 
-    #offset gps with initialpos
+
     def gps(self, dir):
         return round(self.measures.x - self.initialPos[0],2) if dir == "x" else round(self.measures.y - self.initialPos[1],2)
     
-    def realposition(self):
-    #   return [ self.gps("x") + (0.5 * math.cos(math.radians(self.measures.compass))), self.gps("y") + (0.5 * math.sin(math.radians(self.measures.compass)))]
-        return [ roundcoord(self.gps("x")), roundcoord(self.gps("y"))]
     
-    def move(self, direction, compensate = None):
+    def move(self, direction):
         global lastdecision
         self.driveMotors(motorStrengthMap[direction][0], motorStrengthMap[direction][1])
     
@@ -193,19 +187,14 @@ class MyRob(CRobLinkAngs):
             #check if the vertex already exists, if it doesn´t, detect it and create it, if None is returned must have been a mistake
             vertex = self.checkNearVertex()
             if vertex:
-                #print("MOTHERFUCKING BEACON", vertex) if vertex.beacon >= 0 else None
-                #print(f"CURRENTE VERTEX {self.currentVertex}")
                 self.state = "decision"
                 #!shenanigans for beacons in straight line currentvertex should always be None unless it was a straight line beacon
                 if self.currentVertex and self.currentVertex.beacon >= 0 and not vertex.beacon>=0:
-                    # print("straing line currentVertex",self.currentVertex)
-                    # print("stright line beacon",self.currentVertex.beacon)
                     print("previous vertex was straight line beacon")
                     self.prevVertex = self.currentVertex
                     
                 self.currentVertex = vertex
                 
-                #self.turnpoint= [self.measures.x + 0.438 * math.cos(math.radians(self.measures.compass)), self.measures.y + 0.438 * math.sin(math.radians(self.measures.compass))]
                 self.turnpoint= [(vertex.x), (vertex.y)]
                 
                 self.detectedsensors = []
@@ -300,10 +289,8 @@ class MyRob(CRobLinkAngs):
         bol = self.adjustForward()
         once = 1
 
-        # if self.currentVertex.beacon >=0:
-        #     self.prevVertex = self.currentVertex
-            
         if bol == 1 :
+        
             once = 0
             self.state = "orient"
             print(f"Decide {self.currentVertex.id}: {self.currentVertex.edges} ")
@@ -435,9 +422,9 @@ class MyRob(CRobLinkAngs):
                 # print(self.vertexList[0])
                 # print(second_vertex)
                 # print("--------")
-                # self.vertexList[0].connects[inversedirectionMap[direction]]=second_vertex.id
-                # connected_vertex.connects[inversedirectionMap[direction]]=0
-                # second_vertex.connects[direction] = 0
+                self.vertexList[0].connects[inversedirectionMap[direction]]=second_vertex.id
+                connected_vertex.connects[inversedirectionMap[direction]]=0
+                second_vertex.connects[direction] = 0
                 # print("----after----")
                 # print(connected_vertex)
                 # print(self.vertexList[0])
@@ -446,9 +433,10 @@ class MyRob(CRobLinkAngs):
            
             # with open("beaconvertex.pkl", "wb") as f:
             #     pickle.dump(self.vertexList, f, pickle.HIGHEST_PROTOCOL)
+            print(self.vertexList)
             c3path.Generate_path_file(self.vertexList)
             #CreateMap.generate(self.vertexList)
-            print(f"BEACON {[vertex for vertex in self.vertexList if vertex.beacon >= 0]}")
+         
             self.finish()
         self.prevVertex = self.currentVertex
         self.currentVertex = None
@@ -457,9 +445,7 @@ class MyRob(CRobLinkAngs):
 
         global distance
         global once
-        # print("----------------")
         
-        # print("DistanceAnte",distance)
         if once==0:
             distance = round(math.sqrt((self.turnpoint[0] - self.gps("x"))**2 + (self.turnpoint[1] - self.gps("y"))**2),2)
             #print(distance)
@@ -470,8 +456,7 @@ class MyRob(CRobLinkAngs):
             #check if has path forward of the vertex, update the vertex 
             if (self.measures.lineSensor[3] == "1" or self.measures.lineSensor[4] == "1" or self.measures.lineSensor[2] == "1"):
                 self.currentVertex.edges[self.direction] = 1 if self.currentVertex.edges[self.direction] == 0 else self.currentVertex.edges[self.direction]
-        #if distance> prevDistance:
-        #prevDistance = distance
+
             return 1
         
         walk = distance
@@ -482,16 +467,10 @@ class MyRob(CRobLinkAngs):
                 walk = 0.05
             else:
                 walk = 0.01
-        # if distance < 0.2:
-        #     walk = 0.03
-        # if distance < 0.1:
-        #     walk = 0.01
-        
-        # print("walk",walk)
-        # print("onde",once)
+
+
         distance = distance - walk
-        # print("distanceDps",distance)
-        #print(distance)
+
         if distance <=0:
             return 1
         self.driveMotors(walk,walk)
@@ -563,8 +542,6 @@ class MyRob(CRobLinkAngs):
             #if all 7 sensors report "1"
             #go back if no line detected
             #if one of these sensors is "1" check if we´re near vertex
-            #!change if beacon radius is not 2
-            #print(self.inBeacon )
             if self.inBeacon > 0:
                 
                 if self.inBeacon not in [vertex.beacon for vertex in self.vertexList]:

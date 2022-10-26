@@ -100,7 +100,7 @@ def get_path(vertexList):
         if distance < min:
             min = distance
             optimal = path
-
+    print(f"Optimal path: {optimal}")
     return optimal
     # path=[0]
     # for beacon_a, beacon_b in pairwise(beacon_ids):
