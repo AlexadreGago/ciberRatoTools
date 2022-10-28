@@ -82,7 +82,6 @@ def pairwise(iterable):
 
 def get_path(vertexList):
     beacon_ids = [vertex.id for vertex in vertexList if vertex.beacon > 0]
-    
     permutations = itertools.permutations(beacon_ids)
     optimal=[]
     min = 9999999

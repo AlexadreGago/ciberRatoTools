@@ -31,7 +31,7 @@ def Generate_path_file(vertexlist):
         for vertex in path:
             
             if hammond_distance(vertexlist, vertex, prev) <= 2 :  
-                f.write(f"{vertexlist[vertex].x} {vertexlist[vertex].y}\n") if vertexlist[vertex].beacon <=0 else f.write(f"{vertexlist[vertex].x} {vertexlist[vertex].y} #{vertexlist[vertex].beacon}\n")
+                f.write(f"{vertexlist[vertex].x} {vertexlist[vertex].y}\n")
             else:
                 if vertexlist[vertex].x == vertexlist[prev].x:
                     diff = vertexlist[vertex].y - vertexlist[prev].y

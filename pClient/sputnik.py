@@ -532,6 +532,7 @@ class MyRob(CRobLinkAngs):
             c3path.Generate_path_file(self.vertexList)
          
             self.finish()
+            exit()
         self.prevVertex = self.currentVertex
         self.currentVertex = None
         
