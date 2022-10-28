@@ -10,4 +10,7 @@ if [ "$1" = "-c" ]  || [ "$1" = "-C" ]; then
         python3 myRobC3.py --robname C3_97521_98123 
         echo "Path file name is 'myrob.path'"
     fi
+else
+    echo "Usage: ./run.sh -c <challenge number>"
+    echo "Example: ./run.sh -c 1"
 fi

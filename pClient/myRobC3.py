@@ -85,7 +85,7 @@ class Vertex():
         self.beacon = -1
 
     def __repr__(self) -> str:
-        return f"Vertex {self.id} at ({self.x},{self.y}), edges: {self.edges}, connects: {self.connects} \n"
+        return f"Vertex {self.id} Beacon {self.beacon} at ({self.x},{self.y}), edges: {self.edges}, connects: {self.connects} \n"
 
 
 class MyRob(CRobLinkAngs):
@@ -261,7 +261,7 @@ class MyRob(CRobLinkAngs):
         isoriented = self.orient(self.direction)
         if isoriented == 1:
 
-            #check if the vertex already exists, if it doesn´t, detect it and create it, if None is returned must have been a mistake
+            #check if the vertex already exists, if it doesnÂ´t, detect it and create it, if None is returned must have been a mistake
             vertex = self.checkNearVertex()
             if vertex:
                 self.state = "decision"
@@ -398,15 +398,19 @@ class MyRob(CRobLinkAngs):
             once = 0
             self.state = "orient"        
             decision = ""
+            print(f"deciding {self.currentVertex}")
             if len(self.queue) > 0:
-                if self.prevVertex.beacon >=0:
-                    if self.vertexList[self.vertexList.index(self.prevVertex)].edges == {"up" : 0,  "down" : 0,  "left" : 0, "right" : 0}:
+    
+                if self.vertexList[self.currentVertex.connects[inversedirectionMap[self.direction]]].edges == {"up" : 0,"down" : 0, "left" : 0,"right" : 0}:
                         #!remove extra direction in pathfinding 
                         print("popped extra")
                         self.queue.pop(0)
                 
-                
-                decision = self.queue.pop(0)
+                if len(self.queue) > 0:
+                    decision = self.queue.pop(0)
+                else:
+                    self.Decide()
+                    return 
                 self.direction = decision
                 self.prevVertex = self.currentVertex
                 self.currentVertex = None
@@ -434,6 +438,10 @@ class MyRob(CRobLinkAngs):
                 else:
                     self.state="pathfinding"
 
+                    if self.prevVertex.connects.get(self.direction) and self.prevVertex.connects[self.direction] != self.currentVertex.id:
+                        self.prevVertex = self.vertexList[self.prevVertex.connects[self.direction]]
+                    
+                    
                     self.prevVertex.connects[self.direction] = self.currentVertex.id
                     self.currentVertex.connects[inversedirectionMap[self.direction]] = self.prevVertex.id
                 
@@ -446,7 +454,8 @@ class MyRob(CRobLinkAngs):
                     return
 
             #append current vertex to self.vertexlist else update it
-
+            if self.prevVertex.connects.get(self.direction) and self.prevVertex.connects[self.direction] != self.currentVertex.id:
+                self.prevVertex = self.vertexList[self.prevVertex.connects[self.direction]]
             self.prevVertex.connects[self.direction] = self.currentVertex.id
             self.currentVertex.connects[inversedirectionMap[self.direction]] = self.prevVertex.id
 

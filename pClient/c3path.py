@@ -51,7 +51,6 @@ def Generate_path_file(vertexlist):
                             f.write(f"{vertexlist[prev].x - i} {vertexlist[vertex].y}\n")
      
             prev = vertex
-    print("Path file generated")
 
     
     
