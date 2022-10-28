@@ -110,7 +110,7 @@ class MyRob(CRobLinkAngs):
         CRobLinkAngs.__init__(self, rob_name, rob_id, angles, host)
         
         #!!!!---------------
-        self.rob_name = "Sputnik"
+
         self.detectedsensors = []
         self.previouspowerLR = (0,0)
         self.turnpoint = None

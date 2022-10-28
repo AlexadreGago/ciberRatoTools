@@ -105,7 +105,6 @@ class MyRob(CRobLinkAngs):
         CRobLinkAngs.__init__(self, rob_name, rob_id, angles, host)
         
         #!!!!---------------
-        self.rob_name = "New Horizons"
         self.detectedsensors = []
         self.previouspowerLR = (0,0)
         self.turnpoint = None
@@ -375,11 +374,11 @@ class MyRob(CRobLinkAngs):
         if bol == 1 :
             once = 0
             self.state = "orient"
-            print(f"Decide {self.currentVertex.id}: {self.currentVertex.edges} ")
+            #print(f"Decide {self.currentVertex.id}: {self.currentVertex.edges} ")
             decision = ""
             if len(self.queue) > 0:
                 decision = self.queue.pop(0)
-                print("queue", self.queue)
+                #print("queue", self.queue)
                 self.direction = decision
                 self.prevVertex = self.currentVertex
                 self.currentVertex = None
@@ -472,6 +471,7 @@ class MyRob(CRobLinkAngs):
             CreateMap.generate(self.vertexList)
             
             self.finish()
+            exit()
         self.prevVertex = self.currentVertex
         self.currentVertex = None
         
