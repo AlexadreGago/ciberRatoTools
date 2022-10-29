@@ -398,12 +398,12 @@ class MyRob(CRobLinkAngs):
             once = 0
             self.state = "orient"        
             decision = ""
-            print(f"deciding {self.currentVertex}")
+            #print(f"deciding {self.currentVertex}")
             if len(self.queue) > 0:
     
                 if self.vertexList[self.currentVertex.connects[inversedirectionMap[self.direction]]].edges == {"up" : 0,"down" : 0, "left" : 0,"right" : 0}:
                         #!remove extra direction in pathfinding 
-                        print("popped extra")
+                        #print("popped extra")
                         self.queue.pop(0)
                 
                 if len(self.queue) > 0:

@@ -56,7 +56,7 @@ def dijkstra(graph, start, end):
             path.insert(0,currentNode)
             currentNode = predecessor[currentNode]
         except KeyError:
-            print(f'Path not reachable {start} {end}')
+            #print(f'Path not reachable {start} {end}')
             break
     path.insert(0,start)
    
@@ -99,7 +99,7 @@ def get_path(vertexList):
         if distance < min:
             min = distance
             optimal = path
-    print(f"Optimal path: {optimal}")
+    #print(f"Optimal path: {optimal}")
     return optimal
     # path=[0]
     # for beacon_a, beacon_b in pairwise(beacon_ids):
