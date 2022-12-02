@@ -31,6 +31,16 @@ inverseDirectionMap = {
 
 lastdecision = "stop"
 
+def roundPowerOf2(x):
+    """round to nearest multiple of 2
+
+    Args:
+        x (float): the number to round
+
+    Returns:
+        int: the rounded number
+    """
+    return int(round(x / 2.0)) * 2
 
 class MyRob(CRobLinkAngs):
     """The robot class
@@ -42,15 +52,20 @@ class MyRob(CRobLinkAngs):
         self.x = 0
         self.y = 0
         self.prevVertex = (0,0)
+        self.state = "wander"
+        self.direction = "right"
         
-        LastRPower = 0
-        LastLPower = 0
-        lastoutR = 0
-        lastoutL = 0
-        lastx = 0
-        lasty = 0
+        self.LastLPower = 0
+        self.LastRPower = 0
+        self. lastoutR = 0
+        self.lastoutL = 0
+        self.lastx = 0
+        self.lasty = 0
         
         self.blockTurns = 0
+        
+        self.initialx = 0
+        self.initialy = 0
 
     # In this map the center of cell (i,j), (i in 0..6, j in 0..13) is mapped to labMap[i*2][j*2].
     # to know if there is a wall on top of cell(i,j) (i in 0..5), check if the
@@ -78,7 +93,8 @@ class MyRob(CRobLinkAngs):
             quit()
 
         self.readSensors()
-
+        self.initialx = self.measures.x
+        self.initialy = self.measures.y
         while True:
 
             if self.measures.stop:
@@ -89,16 +105,6 @@ class MyRob(CRobLinkAngs):
                 else:
                     self.wander()
     
-    def roundPowerOf2(x):
-        """round to nearest multiple of 2
-
-        Args:
-            x (float): the number to round
-
-        Returns:
-            int: the rounded number
-        """
-        return int(round(x / 2.0)) * 2
     
     def updateGPS(self,direction):
         inLPower, inRPower = motorStrengthMap[direction]
@@ -107,14 +113,14 @@ class MyRob(CRobLinkAngs):
         lin = (outL + outR)/2
         
         if self.direction in {"right", "left"}:
-            self.x = self.lastx + (lin * cos((self.measures.compass)))
-            y = self.lasty + (lin * sin(directionMap[self.direction]))
-            self.y = self.roundPowerOf2(y)
+            self.x = self.lastx + (lin) # * cos(radians(self.measures.compass)
+            y = self.lasty + (lin * sin(radians(self.measures.compass)))
+            self.y = roundPowerOf2(y)
         
         if self.direction in {"up", "down"}:
-            self.y = self.lasty + (lin * sin(directionMap[self.direction]))
-            x = self.lastx + (lin * cos(directionMap[self.direction]))
-            self.x = self.roundPowerOf2(x)
+            self.y = self.lasty + (lin * sin(radians(self.measures.compass)))
+            x = self.lastx + (lin * cos(radians(self.measures.compass)))
+            self.x = roundPowerOf2(x)
         
         self.lastoutL = outL
         self.lastoutR = outR
@@ -126,8 +132,11 @@ class MyRob(CRobLinkAngs):
         self.driveMotors(0.15, 0.15)
         
         self.updateGPS(direction)
-        print("x: " + str(self.x) + " y: " + str(self.y))
         self.readSensors()
+        print("x: " + str(self.x) + " y: " + str(self.y))
+        print("compass: " + str(self.measures.compass))
+        print("gpsx: " + str(self.measures.x-self.initialx) + " gpsy: " + str(self.measures.y-self.initialy))
+        print("------------------")
         
     def vertexDiscovery(self):
         rightsensor = []
@@ -196,7 +205,7 @@ class MyRob(CRobLinkAngs):
             self.move("slightLeft")
             
         # go front if 3 middle sensors detect line
-        elif (int(self.measures.lineSensor[3])+int(self.measures.lineSensor[2]+ int(self.measures.linesensor(4))) >= 1 ):
+        elif (int(self.measures.lineSensor[3])+int(self.measures.lineSensor[2])+ int(self.measures.lineSensor[4])) >= 1 :
             self.move("front")
 
         elif self.measures.lineSensor == ["0", "0", "0", "0", "0", "0", "0"]:
