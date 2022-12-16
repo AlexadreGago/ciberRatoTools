@@ -3,6 +3,21 @@ from croblink import *
 from math import *
 import xml.etree.ElementTree as ET
 
+
+class bcolors:
+    """class for colors in the terminal
+
+    """
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
+
 CELLROWS = 7
 CELLCOLS = 14
 motorStrengthMap = {
@@ -13,6 +28,8 @@ motorStrengthMap = {
     "right": (0.15, -0.15),
     "slightLeft": (0.13, 0.15),
     "slightRight": (0.15, 0.13),
+    "stoppedRight": (0.15, -0.15),
+    "stoppedLeft": (-0.15, 0.15),
     "stop": (0, 0)
 }
 slowmotorStrengthMap = {
@@ -23,6 +40,8 @@ slowmotorStrengthMap = {
     "right": (0.06, -0.06),
     "slightLeft": (0.04, 0.06),
     "slightRight": (0.06, 0.04),
+    "stoppedRight": (0.04, -0.04),
+    "stoppedLeft": (-0.04, 0.04),
     "stop": (0, 0)
 }
 directionMap = {
@@ -34,13 +53,13 @@ directionMap = {
 
 inverseDirectionMap = {
     "left": "right",
-    "right": {"left": "up", "right": "down"}},
+    "right": "left",#{"left": "up", "right": "down"},
     "up": "down",
     "down": "up"
 }
-self.direction = map["self.direction"]["direction"]
 
-[right, down, left, up] use %4 to get the next direction
+directions = ["right", "down", "left", "up"]
+
 
 
 lastdecision = "stop"
@@ -120,7 +139,7 @@ class MyRob(CRobLinkAngs):
                 self.readSensors()
             if self.measures.start:
                 if self.state == "vertexDiscovery":
-                    self.vertexDiscovery(self.direction)
+                    self.vertexDiscovery()
                 elif self.state == "turning":
                     self.turning()
                 else:
@@ -171,16 +190,25 @@ class MyRob(CRobLinkAngs):
         self.lasty = self.y
         return
     
-    def vertexDiscovery(self,direction):
-        """turn the robot
+    def nextDirection(self, turn):
+        """get the next direction of the robot
 
         Args:
-            direction (str): the direction to turn
+            turn (str): the direction to turn
 
         Returns:
-            None
+            str: the next direction
         """
-        print(self.measures.lineSensor)
+        if turn == "right":
+            return directions[(directions.index(self.direction) + 1) % 4]
+        else:
+            return directions[(directions.index(self.direction) - 1) % 4]
+
+    
+    def vertexDiscovery(self):
+        """checks if a vertex exists in front of the robot"""
+        # print(self.measures.lineSensor)
+        print(f"{bcolors.HEADER}vertexDiscovery{bcolors.ENDC}")
         if self.calls == 0:
 
             self.rightCounter += int(self.measures.lineSensor[5])
@@ -192,10 +220,12 @@ class MyRob(CRobLinkAngs):
             self.move("frontslow")
             self.calls += 1 
             
-            print("first call")
+            print(f"\t{bcolors.HEADER}first call{bcolors.ENDC}")
+            print(f"\t\t{bcolors.OKBLUE}rightCounter: {self.rightCounter}{bcolors.ENDC}")
+            print(f"\t\t{bcolors.OKBLUE}leftCounter: {self.leftCounter}{bcolors.ENDC}")
 
         elif self.calls == 1:
-            print("second call")
+            
             
             self.rightCounter += int(self.measures.lineSensor[5])
             self.rightCounter += int(self.measures.lineSensor[6])
@@ -203,15 +233,46 @@ class MyRob(CRobLinkAngs):
             self.leftCounter += int(self.measures.lineSensor[0])
             self.leftCounter += int(self.measures.lineSensor[1])
 
+            print(f"\t{bcolors.HEADER}second call{bcolors.ENDC}")
+            print(f"\t\t{bcolors.OKBLUE}rightCounter:{bcolors.ENDC} {bcolors.OKGREEN} {self.rightCounter}{bcolors.ENDC}")
+            print(f"\t\t{bcolors.OKBLUE}leftCounter:{bcolors.ENDC} {bcolors.OKGREEN} {self.leftCounter}{bcolors.ENDC}")
+
             self.calls += 1 
+
             if self.rightCounter > 2:
-                print("certain right turn")
+                print(f"\t{bcolors.OKGREEN}certain right turn{bcolors.ENDC}")
                 self.turnDirection = "right"
-                self.state = "turning"
-            else:
-                print("noiseeeeeeeeeeeeeeeeeeeeeeeeeeeee biiiiiiiiiiiiiiiiiitch")
+                self.direction = self.nextDirection("right")
+                self.move("front")
+
+                self.state = "wander"
+                return
+                
+            # if self.leftCounter > 2:
+            #     print("certain left turn")
+            #     self.turnDirection = "left"
+            #     self.move("front")
+
+            #     self.direction = self.nextDirection("left")
+
+            #     self.state = "turning"
+            #     slight = False
+
+            print(f"\t{bcolors.WARNING}Noise{bcolors.ENDC}")
+            if self.rightCounter < self.leftCounter:
+                
                 self.move("slightLeft")
+            elif self.rightCounter > self.leftCounter:
+                self.move("slightRight")
+            else:
+                if self.measures.compass < directionMap[self.direction]:
+                    self.move("slightLeft") 
+                else:
+                    self.move("slightRight") 
+
+
         else:
+            print(f"\t{bcolors.OKBLUE}third call{bcolors.ENDC}")
             self.calls = 0
             self.rightCounter = 0
             self.leftCounter = 0
@@ -220,128 +281,75 @@ class MyRob(CRobLinkAngs):
                 
             # else: self.state = "wander"   
     def turning(self):
-        if self.turnDirection =="":
-            self.state="wander"
-        if self.turnDirection == "right":
-            if (int(self.measures.lineSensor[5]) + int(self.measures.lineSensor[6])>= 1):
-                print("turning right")
-                self.move("slightRight")
-            # turn slightly left if right edge detected
-                
-            # go front if 3 middle sensors detect line
-            # elif (int(self.measures.lineSensor[3])+int(self.measures.lineSensor[2])+ int(self.measures.lineSensor[4])) >= 1 :
-            if self.measures.compass > -98 and self.measures.compass < -82:
-                print("im aligned")
-                self.state="wander"
-                self.direction
-                self.turnDirection=""
-            else:
-                self.move("right")
-
-
-            #! eventually check for fucck
-            # elif self.measures.lineSensor == ["0", "0", "0", "0", "0", "0", "0"]:
-            #     # self.state="vertexDiscovery"
-            #     # self.detectedsensors = self.measures.lineSensor
-            #     self.move("right")
-            # else:
-            #     self.move("front")
-
+        return
+      
             
             
     def move(self, direction):
-        # print("direction: ", direction)
+        print(f"{bcolors.FAIL}move{bcolors.ENDC}")
         
-        
-        # if self.measures.lineSensor[6] == "1":
-        #     self.updateGPS(*motorStrengthMap[direction], correction = True)
-        if self.x % 2 < 0.5 or self.x % 2 > 1.5:
-            #SLOW EVERYTHING DOWN
-            if self.direction in {"right", "left"}:
-                #MOVING IN X AXIS
+        if self.direction in {"right", "left"}:
+
+            if self.x % 2 < 0.8 or self.x % 2 > 1.2:
+                #SLOW EVERYTHING DOWN
                 self.driveMotors(*slowmotorStrengthMap[direction])
-            else: #up down
-                #MOVING IN Y AXIS
-                self.driveMotors(*slowmotorStrengthMap[direction])
-            self.updateGPS(*slowmotorStrengthMap[direction])
-        else:
-            #GO FAST
-            if self.direction in {"right", "left"}:
-                #MOVING IN X AXIS
-                self.driveMotors(*motorStrengthMap[direction])
+                self.updateGPS(*slowmotorStrengthMap[direction])
             else:
-                #MOVING IN Y AXIS
+                #GO FAST
                 self.driveMotors(*motorStrengthMap[direction])
-            self.updateGPS(*motorStrengthMap[direction])
+                self.updateGPS(*motorStrengthMap[direction])
+        else:
+            if self.y % 2 < 0.8 or self.y % 2 > 1.2:
+                #SLOW EVERYTHING DOWN
+                self.driveMotors(*slowmotorStrengthMap[direction])
+                self.updateGPS(*slowmotorStrengthMap[direction])
+            else:
+                #GO FAST
+                self.driveMotors(*motorStrengthMap[direction])
+                self.updateGPS(*motorStrengthMap[direction])
+            
         
         self.readSensors()
-        
-        # print("x: " + str(self.x) + " y: " + str(self.y))
-        # print("compass: " + str(self.measures.compass))
-        # print("gpsx: " + str(self.measures.x-self.initialx) + " gpsy: " + str(self.measures.y-self.initialy))
-        # print("------------------")
-        
-    # def vertexDiscovery(self):
-    #     rightsensor = []
-    #     leftsensor = []
-    #     # adjustDistanceForward = 0.438
-    #     print(self.detectedsensors)
-    #     print(self.measures.lineSensor)
-    #     # while self.adjustForward(adjustDistanceForward):
-    #     #     if self.measures.lineSensor[6] == "1":
-    #     #         rightsensor.append("1")
-    #     #     if self.measures.lineSensor[0] == "1":
-    #     #         leftsensor.append("1")
-    #     #     print("adjustingForward")
-    #     # while self.decideTurn():
-    #     #     self.move("stop")
-    #     #     print("decidingTurn")
-    #     # while self.turn():
-    #     #     print("turning")
-    #     return 0
-    
-    def adjustForward(self, remDistance):
-        if (done):
-            return 1
-        self.move("front")
-        remDistance -= 0.30
-        return 0
-    
-    def decideTurn(self):
-        if decided:
-            self.decision = decidedDirection
-            return 1
-        return 0
-    
-    def turn(self):
-        if turned:
-            self.prevVertex = (self.x, self.y)
-            self.direction = direction
-            return 1
-        
-        return 0
-            
 
-    def allowTurns(self):
-        if abs(self.x - self.prevVertex[0]) >1.5  or abs(self.y - self.prevVertex[1]) >1.5:
-            self.blockTurns = 0
-        self.blockTurns = 1
-        return
         
     def wander(self):
-        # self.allowTurns()
-        # if these sensors are "1" check if we´re near vertex
-            
-        if (int(self.measures.lineSensor[5]) + int(self.measures.lineSensor[6])>= 1):
-            self.state="vertexDiscovery"
-            self.rightCounter = 0
-            self.leftCounter = 0
-            
+        print(f"{bcolors.HEADER}wander{bcolors.ENDC}")
+        if (int(self.measures.lineSensor[5]) + int(self.measures.lineSensor[6])):
+            if self.direction in {"right", "left"}:
+                if self.x % 2 < 0.5 or self.x % 2 > 1.5:
+                    self.state="vertexDiscovery"
+                    self.rightCounter = 0
+                    self.leftCounter = 0
+                else:
+                    print(f"\t{bcolors.WARNING}anti fuck up{bcolors.ENDC}")
+                    self.move("slightRight")
+            else:
+                if self.y % 2 < 0.5 or self.y % 2 > 1.5:
+                    self.state="vertexDiscovery"
+                    self.rightCounter = 0
+                    self.leftCounter = 0
+                else:
+                    print(f"\t{bcolors.WARNING}anti fuck up{bcolors.ENDC}")
+                    self.move("slightRight")
+    
         # turn slightly left if right edge detected
-        elif (int(self.measures.lineSensor[0]) + int(self.measures.lineSensor[1])>= 1):
-            self.state="vertexDiscovery"
-            self.rightCounter = 0
-            self.leftCounter = 0
+        elif (int(self.measures.lineSensor[0]) + int(self.measures.lineSensor[1])):
+            if self.direction in {"right", "left"}:
+                if self.x % 2 < 0.5 or self.x % 2 > 1.5:
+                    self.state="vertexDiscovery"
+                    self.rightCounter = 0
+                    self.leftCounter = 0
+                else:
+                    print(f"\t{bcolors.WARNING}anti fuck up{bcolors.ENDC}")
+                    self.move("slightLeft")
+            else:
+                if self.y % 2 < 0.5 or self.y % 2 > 1.5:
+                    self.state="vertexDiscovery"
+                    self.rightCounter = 0
+                    self.leftCounter = 0
+                else:
+                    print(f"\t{bcolors.WARNING}anti fuck up{bcolors.ENDC}")
+                    self.move("slightLeft")
             
         # go front if 3 middle sensors detect line
         elif (int(self.measures.lineSensor[3])+int(self.measures.lineSensor[2])+ int(self.measures.lineSensor[4])) >= 1 :
