@@ -278,7 +278,7 @@ class MyRob(CRobLinkAngs):
         if self.turnDirection =="":
             self.state="wander"
         if self.turnDirection == "right":
-            if self.measures.compass > directionMap[self.direction] -4 :
+            if self.measures.compass > directionMap[self.direction] -4 and self.measures.compass < directionMap[self.direction] +15:
                 # if int(self.measures.lineSensor[0])+int(self.measures.lineSensor[1])+int(self.measures.lineSensor[5])+int(self.measures.lineSensor[6]) ==0:
                 #     #FUCKUP GO BACK
                 #     print("fuckup")
@@ -298,10 +298,13 @@ class MyRob(CRobLinkAngs):
             elif(self.measures.lineSensor[5]=="1"):
                 self.move("slightRight")
             else:
-                self.move("stoppedRight")
+                if (int(self.measures.lineSensor[0]+self.measures.lineSensor[1]+self.measures.lineSensor[2]+self.measures.lineSensor[3]+self.measures.lineSensor[4]+self.measures.lineSensor[5]+self.measures.lineSensor[6]))== 0:
+                    self.move("backward")
+                else:
+                    self.move("frontslow")
                 
         if self.turnDirection == "left":
-            if self.measures.compass < directionMap[self.direction]+8 :
+            if self.measures.compass > directionMap[self.direction]-15 and self.measures.compass < directionMap[self.direction]+4 :
                 # if int(self.measures.lineSensor[0])+int(self.measures.lineSensor[1])+int(self.measures.lineSensor[5])+int(self.measures.lineSensor[6]) ==0:
                 #     #FUCKUP GO BACK
                 #     print("fuckup")
@@ -321,7 +324,10 @@ class MyRob(CRobLinkAngs):
             elif(self.measures.lineSensor[1]=="1"):
                 self.move("slightLeft")
             else:
-                self.move("stoppedLeft")
+                if (int(self.measures.lineSensor[0]+self.measures.lineSensor[1]+self.measures.lineSensor[2]+self.measures.lineSensor[3]+self.measures.lineSensor[4]+self.measures.lineSensor[5]+self.measures.lineSensor[6]))== 0:
+                    self.move("backward")
+                else:
+                    self.move("frontslow")
                 
 
 
@@ -419,14 +425,14 @@ class MyRob(CRobLinkAngs):
         # self.allowTurns()
         # if these sensors are "1" check if we´re near vertex
             
-        if (int(self.measures.lineSensor[5]) + int(self.measures.lineSensor[6])>= 1):
+        if ((int(self.measures.lineSensor[5]) + int(self.measures.lineSensor[6])-int(self.measures.lineSensor[4]))>= 1):
             # print("wandervertexDiscovery")
             self.state="vertexDiscovery"
             self.rightCounter = 0
             self.leftCounter = 0
             
         # turn slightly left if right edge detected
-        elif (int(self.measures.lineSensor[0]) + int(self.measures.lineSensor[1])>= 1):
+        elif ((int(self.measures.lineSensor[0]) + int(self.measures.lineSensor[1])-int(self.measures.lineSensor[4]))>= 1):
             # print("wandervertexDiscovery")
             self.state="vertexDiscovery"
             self.rightCounter = 0
