@@ -39,7 +39,9 @@ MOTORSTRENGTHMAP = {
     "right": (0.12, -0.12),
     "slightLeft": (0.10, 0.12),
     "slightRight": (0.12, 0.10),
-    "stop": (0, 0)
+    "stop": (0, 0),
+    "slowbackward": (-0.06, -0.06)
+    
 }
 SLOWMOTORSTRENGTHMAP = {
     "front": (0.06, 0.06),
@@ -49,7 +51,8 @@ SLOWMOTORSTRENGTHMAP = {
     "right": (0.06, -0.06),
     "slightLeft": (0.03, 0.06),
     "slightRight": (0.06, 0.03),
-    "stop": (0, 0)
+    "stop": (0, 0),
+    "slowbackward": (-0.03, -0.03)
 }
 DIRECTIONMAP = {
     "right": 0,
@@ -112,7 +115,7 @@ class Vertex():
         # get coordinates and check if equal to list of coordinates
         return (self.x, self.y) == (o[0], o[1])
 
-    def update(self, robot_dir, turns):
+    def update(self, robot_dir, turns=[], visited=False):
         """updates the possible turns of this vertex
         #! in the future, update the connects as well
         #! also estamos a deixar dar overwrite sempre que passa por um vertice, nao sei se e bom
@@ -129,10 +132,14 @@ class Vertex():
         # print(f"robot_dir: {robot_dir}")
         # print(f"turns: {turns}")
 
-        for turn in turns:
-            edge = TURNSMAP[robot_dir][turn]
-            if self.edges[edge] == 0:
-                self.edges[edge] = 1
+        if visited:
+            self.edges[INVERSEDIRECTIONMAP[robot_dir]] = 2
+        
+        if turns:
+            for turn in turns:
+                edge = TURNSMAP[robot_dir][turn]
+                if self.edges[edge] == 0:
+                    self.edges[edge] = 1
 
     def getDirections(self):
         """returns the possible turns from this vertex
@@ -232,9 +239,7 @@ class MyRob(CRobLinkAngs):
         self.readSensors()
         self.initialx = self.measures.x
         self.initialy = self.measures.y
-        id_iter = itertools.count()
         while True:
-            print(next(id_iter))
             if self.measures.stop:
                 self.readSensors()
             if self.measures.start:
@@ -277,16 +282,20 @@ class MyRob(CRobLinkAngs):
             # print("corrected to: ", self.x, self.y)
 
         else:
-
-            if self.direction in {"right", "left"}:
-                # * cos(radians(self.measures.compass)
+            if self.direction == "right":
                 self.x = self.lastx + (lin)
                 y = self.lasty + (lin * sin(radians(self.measures.compass)))
                 self.y = roundPowerOf2(y)
-
-            if self.direction in {"up", "down"}:
-                self.y = self.lasty + \
-                    (lin * sin(radians(self.measures.compass)))
+            elif self.direction == "left":
+                self.x = self.lastx - (lin)
+                y = self.lasty + (lin * sin(radians(self.measures.compass)))
+                self.y = roundPowerOf2(y)
+            elif self.direction == "up":
+                self.y = self.lasty + (lin)
+                x = self.lastx + (lin * cos(radians(self.measures.compass)))
+                self.x = roundPowerOf2(x)
+            elif self.direction == "down":
+                self.y = self.lasty - (lin)
                 x = self.lastx + (lin * cos(radians(self.measures.compass)))
                 self.x = roundPowerOf2(x)
 
@@ -399,11 +408,11 @@ class MyRob(CRobLinkAngs):
                 self.move("stop")
 
             elif i == 1:
-                rightCounter["lado"] += int(self.measures.lineSensor[4])
-                rightCounter["ponta"] += int(self.measures.lineSensor[5])
+                rightCounter["lado"] += int(self.measures.lineSensor[5])
+                rightCounter["ponta"] += int(self.measures.lineSensor[6])
 
-                leftCounter["ponta"] += int(self.measures.lineSensor[1])
-                leftCounter["lado"] += int(self.measures.lineSensor[2])
+                leftCounter["ponta"] += int(self.measures.lineSensor[0])
+                leftCounter["lado"] += int(self.measures.lineSensor[1])
                 # ?------------------------------LOGGING----------------------------
                 print(
                     f"\t{bcolors.PURPLE}second call{bcolors.RESET} {self.measures.lineSensor}")
@@ -412,10 +421,10 @@ class MyRob(CRobLinkAngs):
                 print(
                     f"\t\t{bcolors.CYAN}leftCounter: {leftCounter}{bcolors.RESET}")
 
-                if sum(rightCounter.values()) > 2 and rightCounter["ponta"] >= 1:
+                if sum(rightCounter.values()) > 2 and rightCounter["ponta"] > 1:
                     print(f"\t{bcolors.GREEN}right turn{bcolors.RESET}")
                     turns.append("right")
-                if sum(leftCounter.values()) > 2 and leftCounter["ponta"] >= 1:
+                if sum(leftCounter.values()) > 2 and leftCounter["ponta"] > 1:
                     print(f"\t{bcolors.GREEN}left turn{bcolors.RESET}")
                     turns.append("left")
 
@@ -426,7 +435,10 @@ class MyRob(CRobLinkAngs):
 
                 # check if == 2 make a move to make a third reading and determine if it is a turn
                 if sum(rightCounter.values()) == 2 or sum(leftCounter.values()) == 2:
-                    self.move("stop")
+                    if self.lineSensorsZero():
+                        self.move("backward")
+                    else:
+                        self.move("frontslow")
 
                     rightCounter["lado"] += int(self.measures.lineSensor[5])
                     rightCounter["ponta"] += int(self.measures.lineSensor[6])
@@ -434,16 +446,16 @@ class MyRob(CRobLinkAngs):
                     leftCounter["ponta"] += int(self.measures.lineSensor[0])
                     leftCounter["lado"] += int(self.measures.lineSensor[1])
                     # ?------------------------------LOGGING----------------------------
-                    print(f"\t{bcolors.GREEN}third call{bcolors.RESET}")
+                    print(f"\t{bcolors.PURPLE}third call{bcolors.RESET} {self.measures.lineSensor}")
                     print(
                         f"\t\t{bcolors.CYAN}rightCounter: {rightCounter}{bcolors.RESET}")
                     print(
                         f"\t\t{bcolors.CYAN}leftCounter: {leftCounter}{bcolors.RESET}")
                     # ?-----------------------------------------------------------------
-                    if sum(rightCounter.values()) > 2 and rightCounter["ponta"] >= 1:
+                    if sum(rightCounter.values()) > 2 and rightCounter["ponta"] > 1:
                         print(f"\t{bcolors.GREEN}right turn{bcolors.RESET}")
                         turns.append("right")
-                    if sum(leftCounter.values()) > 2 and leftCounter["ponta"] >= 1:
+                    if sum(leftCounter.values()) > 2 and leftCounter["ponta"] > 1:
                         print(f"\t{bcolors.GREEN}left turn{bcolors.RESET}")
                         turns.append("left")
 
@@ -494,13 +506,14 @@ class MyRob(CRobLinkAngs):
                 direction for direction in PRIORITY
                 if direction in availableTurns
             ][0]
-
+            print(f"{bcolors.CYAN}availableTurns{bcolors.RESET} {availableTurns}")
             print(f"{bcolors.CYAN}chosenDirection{bcolors.RESET} {chosenDirection}")
 
             while not self.orient(chosenDirection):
                 pass
 
             print(f"{bcolors.CYAN}Estou orientado{bcolors.RESET} {chosenDirection}")
+            vertex.update(self.direction, visited=True)
             self.direction = chosenDirection
             self.state = "wander"
 
@@ -522,8 +535,8 @@ class MyRob(CRobLinkAngs):
                 f"\t{bcolors.WHITE}{bcolors.UNDERLINE}Distance Left to center:{bcolors.RESET} {2* round(self.y/2) - self.y}")
         # ?-----------------------------------------------------------------
 
-        while not self.orient(self.direction):
-            pass
+        # while not self.orient(self.direction):
+        #     pass
 
         for i in range(7):
             self.detectedSensorsCount[i] += int(self.measures.lineSensor[i])
@@ -536,10 +549,15 @@ class MyRob(CRobLinkAngs):
         elif self.direction == "left":
             rem_distance = self.x - roundPowerOf2(self.x)
         elif self.direction == "up":
-            rem_distance = roundPowerOf2(self.y) - self.y
+            rem_distance =  roundPowerOf2(self.y) - self.y
         elif self.direction == "down":
-            rem_distance = self.y - roundPowerOf2(self.y)
-
+            rem_distance = self.y -roundPowerOf2(self.y)
+        #?--------------
+        print(self.y)
+        print(roundPowerOf2(self.y))
+        print("rem_distance_adjustForward", rem_distance)
+        #?--------------
+        
         if rem_distance > 0:
             if rem_distance > 0.1:
                 self.move(override=True, leftPower=0.05, rightPower=0.05)
@@ -555,15 +573,14 @@ class MyRob(CRobLinkAngs):
             for i in range(7):
                 print(self.detectedSensorsCount[i] /
                       self.detectedSensorsCount[7], '\n')
-            print("Detected front?:", self.detectedSensorsCount[2] + self.detectedSensorsCount[3] +
-                  self.detectedSensorsCount[4] / self.detectedSensorsCount[7]*3 > 0.6)
+            print("Detected front?:", ((self.detectedSensorsCount[2] + self.detectedSensorsCount[3] + self.detectedSensorsCount[4] )/ (self.detectedSensorsCount[7]*3) )> 0.6)
             print("Detected Right?(sensor6+7/total):",
-                  self.detectedSensorsCount[6]+self.detectedSensorsCount[5] / 2*self.detectedSensorsCount[7])
+                  (self.detectedSensorsCount[6]+self.detectedSensorsCount[5]) / (2*self.detectedSensorsCount[7]))
             print("Detected Left?(sensor0+1/total):",
-                  self.detectedSensorsCount[0]+self.detectedSensorsCount[1] / 2*self.detectedSensorsCount[7])
+                  (self.detectedSensorsCount[0]+self.detectedSensorsCount[1]) / (2*self.detectedSensorsCount[7]))
             print("------------------------------------")
             # ?-----------------------------------------------------------------
-            if self.detectedSensorsCount[2] + self.detectedSensorsCount[3] + self.detectedSensorsCount[4] / self.detectedSensorsCount[7]*3 > 0.6:
+            if (self.detectedSensorsCount[2] + self.detectedSensorsCount[3] + self.detectedSensorsCount[4]) / (self.detectedSensorsCount[7]*3 )> 0.6:
                 self.getVertex().update(self.direction, ["front"])
             self.state = "decide"
             return True
@@ -625,61 +642,95 @@ class MyRob(CRobLinkAngs):
         else:
             return ""
 
+    def wanderVertex(self):
+
+        return "right"
+    
+    
+    
     def wander(self):
         # ? ------------------------------LOGGING----------------------------
-        print(f"{bcolors.PURPLE}Wander{bcolors.RESET}")
+        print(f"{bcolors.PURPLE}Wander{bcolors.RESET} {self.measures.lineSensor}")
         print(f"\t{bcolors.CYAN}{self.x}{bcolors.RESET}")
         print(f"\t{bcolors.CYAN}{self.y}{bcolors.RESET}")
-        print(f"\t{bcolors.GREEN}{self.initialx - self.measures.x}{bcolors.RESET}")
-        print(f"\t{bcolors.GREEN}{self.initialy - self.measures.y}{bcolors.RESET}")
-
+        print(f"\t{bcolors.RED}Allow Turns:{bcolors.RESET}")
+        print("\t\t Right: ",(self.direction == "right" and (self.x+100) % 2 >= 1.3))
+        print("\t\t Left: ",(self.direction == "left" and (self.x+100) % 2 <= 0.7))
+        print("\t\t Up: ",(self.direction == "up" and (self.y+100) % 2 >= 1.3))
+        print("\t\t Down: ",(self.direction == "down" and (self.y+100) % 2 <= 0.7))
         # ?-----------------------------------------------------------------
 
-        if (int(self.measures.lineSensor[5]) + int(self.measures.lineSensor[6])):
-            if self.direction in {"right", "left"}:
-                if self.x % 2 < 0.5 or self.x % 2 > 1.5:
-                    self.state = "vertexDiscovery"
-
-                else:
-                    print(f"\t{bcolors.YELLOW}anti fuck up{bcolors.RESET}")
-
-                    self.move("slightRight")
+        if (int(self.measures.lineSensor[6])):
+            if (
+                self.measures.lineSensor[3] == "1" 
+                and self.measures.lineSensor[1] == "1" 
+                and self.measures.lineSensor[0] == "0"
+            ):
+                self.move("slightRight")
             else:
-                if self.y % 2 < 0.5 or self.y % 2 > 1.5:
+                
+                if (
+                    (self.direction == "right" and (self.x+100) % 2 >= 1.3)
+                    or (self.direction == "left" and (self.x+100) % 2 <= 0.7)
+                    or (self.direction == "up" and (self.y+100) % 2 >= 1.3)
+                    or (self.direction == "down" and (self.y+100) % 2 <= 0.7)
+                ):
                     self.state = "vertexDiscovery"
                 else:
-
                     print(f"\t{bcolors.YELLOW}anti fuck up{bcolors.RESET}")
-
                     self.move("slightRight")
-
+                    
         # turn slightly left if right edge detected
-        elif (int(self.measures.lineSensor[0]) + int(self.measures.lineSensor[1])):
-            if self.direction in {"right", "left"}:
-                if self.x % 2 < 0.5 or self.x % 2 > 1.5:
-                    self.state = "vertexDiscovery"
-                else:
-
-                    print(f"\t{bcolors.YELLOW}anti fuck up{bcolors.RESET}")
-
-                    self.move("slightLeft")
+        elif (int(self.measures.lineSensor[0])):
+            if self.measures.lineSensor[3] == "1" and self.measures.lineSensor[1] == "1" and self.measures.lineSensor[0] == "0":
+                self.move("slightLeft")
             else:
-                if self.y % 2 < 0.5 or self.y % 2 > 1.5:
+                
+                if (
+                    (self.direction == "right" and (self.x+100) % 2 >= 1.3)
+                    or (self.direction == "left" and (self.x+100) % 2 <= 0.7)
+                    or (self.direction == "up" and (self.y+100) % 2 >= 1.3)
+                    or (self.direction == "down" and (self.y+100) % 2 <= 0.7)
+                ):
                     self.state = "vertexDiscovery"
                 else:
                     print(f"\t{bcolors.YELLOW}anti fuck up{bcolors.RESET}")
-
                     self.move("slightLeft")
+
+
+        elif int(self.measures.lineSensor[1]):
+            self.move("slightLeft")
+        elif int(self.measures.lineSensor[5]):
+            self.move("slightRight")
 
         # go front if 3 middle sensors detect line
-        elif (int(self.measures.lineSensor[3]) + int(self.measures.lineSensor[2]) + int(self.measures.lineSensor[4])) >= 1:
+        elif (int(self.measures.lineSensor[3]) + int(self.measures.lineSensor[2]) + int(self.measures.lineSensor[4])) >= 3:
             self.move("front")
-
-        elif self.lineSensorsZero():
-            if self.direction != self.realOrientation():
-                self.direction = self.realOrientation()
-            else:
-                self.move("front")
+            
+            
+        elif self.lineSensorsZero():#!UNTESTED IF NO LNE DETECTED 
+            if self.direction == "right":
+                if self.measures.compass > 0:
+                    self.move("right")
+                else:
+                    self.move("left")
+            if self.direction == "left":
+                if self.measures.compass > 0:
+                    self.move("left")
+                else:
+                    self.move("right")
+            if self.direction == "up":
+                if self.measures.compass > 90:
+                    self.move("right")
+                else:
+                    self.move("left")
+            if self.direction == "down":
+                if self.measures.compass > -90:
+                    self.move("right")
+                else:
+                    self.move("left")
+        else:
+            self.move("front")
 
 
 class Map():
