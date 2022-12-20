@@ -123,10 +123,10 @@ class Vertex():
         Returns:
             None
         """
-        # update the edges
-        print(f"updating vertex {self.id} {self.edges}")
-        print(f"robot_dir: {robot_dir}")
-        print(f"turns: {turns}")
+        # # update the edges
+        # print(f"updating vertex {self.id} {self.edges}")
+        # print(f"robot_dir: {robot_dir}")
+        # print(f"turns: {turns}")
         
         for turn in turns:
             edge = TURNSMAP[robot_dir][turn]
@@ -337,6 +337,8 @@ class MyRob(CRobLinkAngs):
     def move(self, direction="", override=False, leftPower : float = 0, rightPower : float = 0):
         # ?------------------------------LOGGING----------------------------
         print(f"{bcolors.PURPLE}move{bcolors.RESET}")
+        print(f"\tdirection: {direction}")
+        print(f"\tself.direction: {self.direction}")
         # ?-----------------------------------------------------------------
         if not override:
             if self.direction in {"right", "left"}:
@@ -514,41 +516,23 @@ class MyRob(CRobLinkAngs):
         self.detectedSensorsCount[7] += 1
             
         rem_distance = 0
-        if self.direction in ["right", "left"]:
-            rem_distance = roundPowerOf2(self.x) - self.x
-        if self.direction in ["up", "down"]:
-            rem_distance = roundPowerOf2(self.y) - self.y
-        if rem_distance > 0:
-            if rem_distance >= 0.1:
-                self.move("front")
-                return False
-            else:
-                self.move("frontslow")
-                return False
-
-
-
-
-
-
-
             #!ESTE IF ESTA A PARAR MAL
             #! TENS DISTANCIA < 0 MAS NAO ESTAS NO CENTRO
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        if self.direction == "right":
+            rem_distance = roundPowerOf2(self.x) - self.x
+        elif self.direction == "left":
+            rem_distance = self.x - roundPowerOf2(self.x)
+        elif self.direction == "up":
+            rem_distance = roundPowerOf2(self.y) - self.y
+        elif self.direction == "down":
+            rem_distance = self.y - roundPowerOf2(self.y)
+    
+        if rem_distance > 0:
+            if rem_distance > 0.07:
+                self.move(override=True, leftPower=0.05, rightPower=0.05)
+            else:
+                self.move(override=True, leftPower=0.01, rightPower=0.01)
+            return False
         else :
             #! WE CAN TAKE MORE CONCLUSION WITH THESE SENSORS
             #? ------------------------------LOGGING----------------------------
@@ -562,7 +546,6 @@ class MyRob(CRobLinkAngs):
             # ?-----------------------------------------------------------------
             if self.detectedSensorsCount[2] + self.detectedSensorsCount[3] + self.detectedSensorsCount[4] / self.detectedSensorsCount[7]*3 > 0.6:
                 self.getVertex().update(self.direction, ["front"])
-                print("FUI EU CARLHO")
             self.state = "decide"
             return True
         
@@ -703,9 +686,18 @@ class MyRob(CRobLinkAngs):
         elif self.lineSensorsZero():
             # self.state="vertexDiscovery"
             # self.detectedsensors = self.measures.lineSensor
-            self.move("right")
-        else:
-            self.move("front")
+            if self.direction == "right":
+                if self.measures.compass >45 and self.measures.compass < 180:
+                    self.move("slightRight")
+            elif self.direction == "left":
+                rem_distance = self.x - roundPowerOf2(self.x)
+            elif self.direction == "up":
+                rem_distance = roundPowerOf2(self.y) - self.y
+            elif self.direction == "down":
+                rem_distance = self.y - roundPowerOf2(self.y)
+                self.move("right")
+            else:
+                self.move("front")
 
 
 class Map():
