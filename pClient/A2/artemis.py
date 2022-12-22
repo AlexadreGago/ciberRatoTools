@@ -4,7 +4,8 @@ from croblink import *
 from math import *
 import xml.etree.ElementTree as ET
 import itertools
-
+import search
+import time
 
 class bcolors:
     """class for colors in the terminal
@@ -44,15 +45,15 @@ MOTORSTRENGTHMAP = {
     
 }
 SLOWMOTORSTRENGTHMAP = {
-    "front": (0.06, 0.06),
-    "frontslow": (0.02, 0.02),
-    "backward": (-0.06, -0.06),
-    "left": (-0.06, 0.06),
-    "right": (0.06, -0.06),
-    "slightLeft": (0.03, 0.06),
-    "slightRight": (0.06, 0.03),
+    "front": (0.03, 0.03),
+    "frontslow": (0.01, 0.01),
+    "backward": (-0.03, -0.03),
+    "left": (-0.03, 0.03),
+    "right": (0.03, -0.03),
+    "slightLeft": (0.01, 0.03),
+    "slightRight": (0.03, 0.01),
     "stop": (0, 0),
-    "slowbackward": (-0.03, -0.03)
+    "slowbackward": (-0.01, -0.01)
 }
 DIRECTIONMAP = {
     "right": 0,
@@ -77,7 +78,33 @@ TURNSMAP = {
 
 PRIORITY = ["down", "right", "up", "left"]
 
-
+class Beacon():
+    """ A beacon in the map """
+    id_iter = itertools.count()
+    
+    def __init__(self,x=-1,y=-1,vertexList=[]):
+        self.x = x
+        self.y = y
+        self.id = next(Beacon.id_iter)
+        if (x,y) in vertexList:
+            self.isVertex = True
+            self.vertex = vertexList[vertexList.index((x,y))]
+        else:
+            self.isVertex = False
+            self.vertex = None
+        self.connects = {}
+        
+    def __repr__(self) -> str:
+        return f"Beacon at ({self.x},{self.y}, id: {self.id}, isVertex: {self.isVertex}, vertex: {self.vertex})"
+    
+    def __eq__(self, o: list) -> bool:
+        # get coordinates and check if equal to list of coordinates
+        return (self.x, self.y) == (o[0], o[1])
+    
+    def update(self,connections = None):
+        self.connects = connections
+        
+    
 class Vertex():
     """A vertex in the graph
 
@@ -115,7 +142,7 @@ class Vertex():
         # get coordinates and check if equal to list of coordinates
         return (self.x, self.y) == (o[0], o[1])
 
-    def update(self, robot_dir, turns=[], visited=False):
+    def update(self, robot_dir, turns=[], visited=False, connects = None):
         """updates the possible turns of this vertex
         #! in the future, update the connects as well
         #! also estamos a deixar dar overwrite sempre que passa por um vertice, nao sei se e bom
@@ -140,7 +167,14 @@ class Vertex():
                 edge = TURNSMAP[robot_dir][turn]
                 if self.edges[edge] == 0:
                     self.edges[edge] = 1
-
+        if connects:
+            self.connects[INVERSEDIRECTIONMAP[robot_dir]] = connects
+            return
+    def updateEdges(self, edges):
+        for edge in edges:
+            self.edges[edge] = 1
+        # self.edges = {}
+        
     def getDirections(self):
         """returns the possible turns from this vertex
 
@@ -151,7 +185,8 @@ class Vertex():
             list: the possible turns
         """
         return [
-            direction for direction in self.edges
+            direction 
+            for direction in self.edges
             if self.edges[direction] == 1
         ]
 
@@ -177,8 +212,7 @@ class MyRob(CRobLinkAngs):
         CRobLinkAngs.__init__(self, rob_name, rob_id, angles, host)
         self.x = 0
         self.y = 0
-        self.prevVertex = (0, 0)
-        self.state = "wander"
+        self.state = "initial"
         self.direction = "right"
 
         self.LastLPower = 0
@@ -193,7 +227,12 @@ class MyRob(CRobLinkAngs):
 
         self.turnDirection = ""
 
-        self.vertexList = []
+        self.vertexList= []
+        self.beaconList = []
+        #!CREATE THE INITIAL VERTEX
+        self.pathfindingMovements = []
+        self.prevVertex = self.getVertex()
+        
 
         self.detectedSensorsCount = [0, 0, 0, 0, 0, 0, 0, 0]
 
@@ -251,10 +290,66 @@ class MyRob(CRobLinkAngs):
                     self.decide()
                 elif self.state == "adjustForward":
                     self.adjustForward()
+                elif self.state == "initial":
+                    self.beginning()
                 else:
                     self.wander()
+                    
+    def beginning(self):
+        """the beginning state of the robot
+        This function contains the logic of the robot when it is in the beginning state.
+        It does a 360 to see the possible moves
 
-    def updateGPS(self, inLPower, inRPower, correction=False):
+        Args:
+            None
+
+        Returns:
+            None
+        """
+        directions = ["right","up","left","down"]
+        detectedDirections = []
+        for dir in directions:
+            detectedSensons = [0, 0, 0, 0, 0, 0, 0]
+            
+            while not self.orient(dir):
+                pass
+
+            self.readSensors()
+            for idx, sensor in enumerate(self.measures.lineSensor):
+                print("sensor",sensor)
+                print("idx",idx)
+                if sensor == "1":
+                    detectedSensons[idx] += 1
+                    
+            self.readSensors()
+            for idx,sensor in enumerate(self.measures.lineSensor):
+                if sensor == "1":
+                    detectedSensons[idx] += 1
+                    
+            if detectedSensons[3]+ detectedSensons[2]+detectedSensons[4] >= 2:
+                detectedDirections.append(dir)
+                
+            print("detectedSensonsRight",detectedSensons)
+            print("detectedSensonsRight",detectedSensons[3]+ detectedSensons[2]+detectedSensons[4] >= 3)
+            
+        print("detectedDirections",detectedDirections)
+        if not detectedDirections:
+            self.finish()
+            sys.exit()
+        else:
+            self.prevVertex.updateEdges(detectedDirections)
+            
+            chosenDirection = [
+                        direction for direction in PRIORITY
+                        if direction in detectedDirections
+                    ][0]
+
+            while not self.orient(chosenDirection):
+                pass
+            self.direction = chosenDirection
+            self.state= "wander"
+        
+    def updateGPS(self, inLPower : float, inRPower : float, correction : bool = False) -> None:
         """update the GPS coordinates of the robot
 
         Args:
@@ -305,7 +400,7 @@ class MyRob(CRobLinkAngs):
         self.lasty = self.y
         return
 
-    def nextDirection(self, turn):
+    def nextDirection(self, turn : str) -> str:
         """get the next direction of the robot
 
         Args:
@@ -319,7 +414,33 @@ class MyRob(CRobLinkAngs):
         else:
             return TURNSMAP[self.direction]["left"]
 
-    def getVertex(self):
+
+    def findPath(self, currVertex : Vertex, targetVertex : int = None) -> None:
+        """find the path to the goal
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
+        id = currVertex.id
+        # closestVertex = None
+        # mincost = math.inf
+        # for vertex in self.vertexList:
+        #     if vertex.id != id:
+        #         cost = search.directionqueue(self.vertexList, id, vertex.id)
+        #         if cost< mincost:
+        #             mincost = cost
+        #             closestVertex = vertex
+        
+        directionqueue = min ( 
+            map ( lambda vertex: search.directionqueue(self.vertexList, id, vertex.id), self.vertexList ),
+            key = lambda x: len(x)
+        )
+        return directionqueue
+    
+    def getVertex(self, id : int = None) -> Vertex:
         """create a vertex in the current position of the robot or return the existing one
 
         Args:
@@ -330,51 +451,61 @@ class MyRob(CRobLinkAngs):
         """
         roundedcoords = (roundPowerOf2(self.x), roundPowerOf2(self.y))
 
-        # go read __eq__ method in Vertex class
-        vertex = [vertex for vertex in self.vertexList if vertex == roundedcoords]
-        if vertex:
-            vertex = vertex[0]
-            #!neste momento so curvas, dps tem de ter connects
-
+        if id:
+            
+            return [
+                vertex 
+                for vertex in self.vertexList 
+                if vertex.id == id
+            ][0]
         else:
-            vertex = Vertex(*roundedcoords)
-            #!do this now? or after turning?
-            self.vertexList.append(vertex)
-        return vertex
+        # go read __eq__ method in Vertex class
+            vertex = [
+                vertex 
+                for vertex in self.vertexList 
+                if vertex == roundedcoords
+            ]
+            if vertex:
+                vertex = vertex[0]
+                #!neste momento so curvas, dps tem de ter connects
 
-    def move(self, direction="", override=False, leftPower: float = 0, rightPower: float = 0):
+            else:
+                vertex = Vertex(*roundedcoords)
+                #!do this now? or after turning?
+                self.vertexList.append(vertex)
+            return vertex
+
+    def move(self, direction : str = "", override : bool = False, leftPower: float = 0, rightPower: float = 0) -> None:
         # ?------------------------------LOGGING----------------------------
         print(f"{bcolors.PURPLE}move{bcolors.RESET}")
         print(f"\tdirection: {direction}")
         print(f"\tself.direction: {self.direction}")
         # ?-----------------------------------------------------------------
         if not override:
-            if self.direction in {"right", "left"}:
-
-                if self.x % 2 < 0.5 or self.x % 2 > 1.5:
-                    # SLOW EVERYTHING DOWN
-                    print("\t Motors strength:", *SLOWMOTORSTRENGTHMAP[direction])          
-                    self.driveMotors(*SLOWMOTORSTRENGTHMAP[direction])
-                    self.updateGPS(*SLOWMOTORSTRENGTHMAP[direction])
-                else:
-                    # GO FAST
-                    print("\t Motors strength:", *SLOWMOTORSTRENGTHMAP[direction])          
-                    
-                    self.driveMotors(*MOTORSTRENGTHMAP[direction])
-                    self.updateGPS(*MOTORSTRENGTHMAP[direction])
+            speed=True
+            #! xaneco nao esquecer self.x % 2 < 0.1 REVER
+            if self.direction == "right" and((self.x % 2) > 1.4):
+                speed=False
+            elif self.direction == "left" and( self.x % 2 < 0.6 ):
+                speed=False
+            elif self.direction == "up" and( self.y % 2 > 1.4):
+                speed=False
+            elif self.direction == "down" and( self.y % 2 < 0.6):
+                speed=False
+                
+            #?-----------------------------LOGGING----------------------------
+            # print(f"{bcolors.UNDERLINE}X {self.x%2}{bcolors.RESET}")
+            # print(f"{bcolors.UNDERLINE}Y {self.y%2}{bcolors.RESET}")
+            # print(f"{bcolors.YELLOW}speed: {speed}{bcolors.RESET}")
+            #?-----------------------------------------------------------------
+            if speed:
+                print("\t Motors strength:", *MOTORSTRENGTHMAP[direction])          
+                self.updateGPS(*MOTORSTRENGTHMAP[direction])
+                self.driveMotors(*MOTORSTRENGTHMAP[direction])
             else:
-                if self.y % 2 < 0.5 or self.y % 2 > 1.3:
-                    # SLOW EVERYTHING DOWN
-                    print("\t Motors strength:", *SLOWMOTORSTRENGTHMAP[direction])          
-                    
-                    self.driveMotors(*SLOWMOTORSTRENGTHMAP[direction])
-                    self.updateGPS(*SLOWMOTORSTRENGTHMAP[direction])
-                else:
-                    # GO FAST
-                    print("\t Motors strength:", *SLOWMOTORSTRENGTHMAP[direction])          
-                    
-                    self.driveMotors(*MOTORSTRENGTHMAP[direction])
-                    self.updateGPS(*MOTORSTRENGTHMAP[direction])
+                print("\t Motors strength:", *SLOWMOTORSTRENGTHMAP[direction])          
+                self.updateGPS(*SLOWMOTORSTRENGTHMAP[direction])
+                self.driveMotors(*SLOWMOTORSTRENGTHMAP[direction])
         else:
             print("\t Motors strength:",leftPower,rightPower )          
             self.driveMotors(leftPower, rightPower)
@@ -493,29 +624,46 @@ class MyRob(CRobLinkAngs):
         print(f"{bcolors.PURPLE}decide{bcolors.RESET}")
         print(vertex)
         # ?-----------------------------------------------------------------
-
         # first position the robot in the center of the vertex
-        self.detectedSensorsCount = [0, 0, 0, 0, 0, 0, 0, 0]
-        while not self.adjustForward():
+        self.detectedSensorsCount = [0, 0, 0, 0, 0, 0, 0, 0] 
+        while not self.adjustForward(): #!eventually reqwrite this
             pass
 
-        # priority is down, right, up, left
-        availableTurns = vertex.getDirections()
-        if availableTurns:
-            chosenDirection = [
-                direction for direction in PRIORITY
-                if direction in availableTurns
-            ][0]
-            print(f"{bcolors.CYAN}availableTurns{bcolors.RESET} {availableTurns}")
-            print(f"{bcolors.CYAN}chosenDirection{bcolors.RESET} {chosenDirection}")
+        vertex.update( self.direction, visited=True, connects=(self.prevVertex.id) )
+        self.prevVertex.update( INVERSEDIRECTIONMAP[self.direction], connects=(vertex.id),visited=True)
+        
+        if self.pathfindingMovements:
+            chosenDirection = self.pathfindingMovements.pop(0)
+        else:
+            availableTurns = vertex.getDirections()
+            # priority is down, right, up, left
+            if availableTurns:
+                chosenDirection = [
+                    direction for direction in PRIORITY
+                    if direction in availableTurns
+                ][0]
+            else:
+                #! Calculate the path to the closest unvisited vertex and Move one step in that direction
+                self.findPath(vertex)
+                if self.pathfindingMovements:
+                    chosenDirection = self.pathfindingMovements.pop(0)
+                    
+                self.pathfindingMovements = path
+                
+        print(f"{bcolors.CYAN}availableTurns{bcolors.RESET} {availableTurns}")
+        print(f"{bcolors.CYAN}chosenDirection{bcolors.RESET} {chosenDirection}")
+        while not self.orient(chosenDirection): #!eventually reqwrite this
+            pass
+        
+        print(f"{bcolors.CYAN}Estou orientado{bcolors.RESET} {chosenDirection}")
+        print(f"{bcolors.CYAN}Estou em{bcolors.RESET} {self.getVertex()}"  )
 
-            while not self.orient(chosenDirection):
-                pass
-
-            print(f"{bcolors.CYAN}Estou orientado{bcolors.RESET} {chosenDirection}")
-            vertex.update(self.direction, visited=True)
-            self.direction = chosenDirection
-            self.state = "wander"
+        self.direction = chosenDirection
+        self.prevVertex = vertex      
+        #print all vertices
+        print(f"{bcolors.CYAN}Vertices{bcolors.RESET} {[vertex for vertex in self.vertexList]}"  )
+        self.state = "wander"
+                
 
     # ------------------------------------
     def adjustForward(self):
@@ -537,7 +685,6 @@ class MyRob(CRobLinkAngs):
 
         # while not self.orient(self.direction):
         #     pass
-
         for i in range(7):
             self.detectedSensorsCount[i] += int(self.measures.lineSensor[i])
         self.detectedSensorsCount[7] += 1
@@ -585,7 +732,7 @@ class MyRob(CRobLinkAngs):
             self.state = "decide"
             return True
 
-    def orient(self, dir):
+    def orient(self, dir:str) -> bool:
         """Orients the robot in the given direction"""
 
         # ? ------------------------------LOGGING----------------------------
@@ -604,11 +751,11 @@ class MyRob(CRobLinkAngs):
         remaining = min(degrees-self.measures.compass, degrees -
                         self.measures.compass+360, degrees-self.measures.compass-360, key=abs)
 
-        print(f"\t{bcolors.CYAN}remaining{bcolors.RESET} {remaining}")
-        print("------------------------------------")
+        # print(f"\t{bcolors.CYAN}remaining{bcolors.RESET} {remaining}")
+        # print("------------------------------------")
 
         if abs(remaining) <= 2:
-            print("REMAINING <=2 TRUE")
+            # print("REMAINING <=2 TRUE")
             return True
         else:
             power = round(math.radians(remaining) -
@@ -627,7 +774,7 @@ class MyRob(CRobLinkAngs):
                     power = -0.07
 
             self.move(override=True, leftPower=-power, rightPower=power)
-            print(f"\t{bcolors.CYAN}power{bcolors.RESET} {power}")
+            # print(f"\t{bcolors.CYAN}power{bcolors.RESET} {power}")
             return False
 
     def realOrientation(self):
@@ -641,10 +788,6 @@ class MyRob(CRobLinkAngs):
             return "down"
         else:
             return ""
-
-    def wanderVertex(self):
-
-        return "right"
     
     
     
@@ -654,48 +797,40 @@ class MyRob(CRobLinkAngs):
         print(f"\t{bcolors.CYAN}{self.x}{bcolors.RESET}")
         print(f"\t{bcolors.CYAN}{self.y}{bcolors.RESET}")
         print(f"\t{bcolors.RED}Allow Turns:{bcolors.RESET}")
-        print("\t\t Right: ",(self.direction == "right" and (self.x+100) % 2 >= 1.3))
-        print("\t\t Left: ",(self.direction == "left" and (self.x+100) % 2 <= 0.7))
-        print("\t\t Up: ",(self.direction == "up" and (self.y+100) % 2 >= 1.3))
-        print("\t\t Down: ",(self.direction == "down" and (self.y+100) % 2 <= 0.7))
+        if self.direction == "right": 
+            print("\t\t",(self.direction == "right" and (self.x+100) % 2 >= 1.3))
+        elif self.direction == "left":
+            print("\t\t",(self.direction == "left" and (self.x+100) % 2 <= 0.7))
+        elif self.direction == "up":
+            print("\t\t",(self.direction == "up" and (self.y+100) % 2 >= 1.3))
+        elif self.direction == "down":
+            print("\t\t",(self.direction == "down" and (self.y+100) % 2 <= 0.7))
         # ?-----------------------------------------------------------------
 
         if (int(self.measures.lineSensor[6])):
             if (
-                self.measures.lineSensor[3] == "1" 
-                and self.measures.lineSensor[1] == "1" 
-                and self.measures.lineSensor[0] == "0"
+                (self.direction == "right" and (self.x+100) % 2 >= 1.3)
+                or (self.direction == "left" and (self.x+100) % 2 <= 0.7)
+                or (self.direction == "up" and (self.y+100) % 2 >= 1.3)
+                or (self.direction == "down" and (self.y+100) % 2 <= 0.7)
             ):
-                self.move("slightRight")
+                self.state = "vertexDiscovery"
             else:
-                
-                if (
-                    (self.direction == "right" and (self.x+100) % 2 >= 1.3)
-                    or (self.direction == "left" and (self.x+100) % 2 <= 0.7)
-                    or (self.direction == "up" and (self.y+100) % 2 >= 1.3)
-                    or (self.direction == "down" and (self.y+100) % 2 <= 0.7)
-                ):
-                    self.state = "vertexDiscovery"
-                else:
-                    print(f"\t{bcolors.YELLOW}anti fuck up{bcolors.RESET}")
-                    self.move("slightRight")
+                print(f"\t{bcolors.YELLOW}anti fuck up{bcolors.RESET}")
+                self.move("slightRight")
                     
         # turn slightly left if right edge detected
         elif (int(self.measures.lineSensor[0])):
-            if self.measures.lineSensor[3] == "1" and self.measures.lineSensor[1] == "1" and self.measures.lineSensor[0] == "0":
-                self.move("slightLeft")
+            if (
+                (self.direction == "right" and (self.x+100) % 2 >= 1.3)
+                or (self.direction == "left" and (self.x+100) % 2 <= 0.7)
+                or (self.direction == "up" and (self.y+100) % 2 >= 1.3)
+                or (self.direction == "down" and (self.y+100) % 2 <= 0.7)
+            ):
+                self.state = "vertexDiscovery"
             else:
-                
-                if (
-                    (self.direction == "right" and (self.x+100) % 2 >= 1.3)
-                    or (self.direction == "left" and (self.x+100) % 2 <= 0.7)
-                    or (self.direction == "up" and (self.y+100) % 2 >= 1.3)
-                    or (self.direction == "down" and (self.y+100) % 2 <= 0.7)
-                ):
-                    self.state = "vertexDiscovery"
-                else:
-                    print(f"\t{bcolors.YELLOW}anti fuck up{bcolors.RESET}")
-                    self.move("slightLeft")
+                print(f"\t{bcolors.YELLOW}anti fuck up{bcolors.RESET}")
+                self.move("slightLeft")
 
 
         elif int(self.measures.lineSensor[1]):
