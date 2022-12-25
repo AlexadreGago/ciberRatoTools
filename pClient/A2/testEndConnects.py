@@ -197,7 +197,7 @@ b2 = Beacon(4,2,vertexList)
 #        |
 #        *--*
 
-b0.connects["right"] = v1.id#! DE ALGUMA MANEIRA TEMOS DE TER AS CONNECTIOND DO BEACON SENAO NAO SEI RESOLVER
+b0.connects["right"] = v1.id #! DE ALGUMA MANEIRA TEMOS DE TER AS CONNECTIOND DO BEACON SENAO NAO SEI RESOLVER
 b1.connects["left"] = v1.id
 b1.connects["down"] = v3.id
 b2.connects["up"] = v2.id
@@ -252,10 +252,8 @@ for beacon in beaconList:
                     if vertex.connects[connection] in v_ids:
                         vertex.connects[connection] = vertex_beacon.id
                         print("altered: ",vertex)
-                vertex.connects = vertex_beacon.connects
-                #! FALTA ATUALIZAR OS VERTICES ANTIGOS NA VERTEXLIST
-                #!...............
-        
+                 
+
         print("New Vertex ",vertex_beacon)
         vertexList.append(vertex_beacon)
         print(vertexList)

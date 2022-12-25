@@ -78,6 +78,12 @@ TURNSMAP = {
 
 PRIORITY = ["down", "right", "up", "left"]
 
+ŔIGHTHANDRULE = {
+    "right": ["down", "right", "up", "left"],
+    "up": ["right", "up", "left", "down"],
+    "left": ["up", "left", "down", "right"],
+    "down": ["left", "down", "right", "up"]
+}
 class Beacon():
     """ A beacon in the map """
     id_iter = itertools.count()
