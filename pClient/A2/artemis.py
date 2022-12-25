@@ -38,8 +38,8 @@ MOTORSTRENGTHMAP = {
     "backward": (-0.12, -0.12),
     "left": (-0.12, 0.12),
     "right": (0.12, -0.12),
-    "slightLeft": (0.10, 0.12),
-    "slightRight": (0.12, 0.10),
+    "slightLeft": (0.08, 0.12),
+    "slightRight": (0.12, 0.08),
     "stop": (0, 0),
     "slowbackward": (-0.06, -0.06)
     
@@ -78,7 +78,7 @@ TURNSMAP = {
 
 PRIORITY = ["down", "right", "up", "left"]
 
-ŔIGHTHANDRULE = {
+RIGHTHANDRULE = {
     "right": ["down", "right", "up", "left"],
     "up": ["right", "up", "left", "down"],
     "left": ["up", "left", "down", "right"],
@@ -173,7 +173,7 @@ class Vertex():
                 edge = TURNSMAP[robot_dir][turn]
                 if self.edges[edge] == 0:
                     self.edges[edge] = 1
-        if connects:
+        if connects is not None:
             self.connects[INVERSEDIRECTIONMAP[robot_dir]] = connects
             return
     def updateEdges(self, edges):
@@ -237,6 +237,7 @@ class MyRob(CRobLinkAngs):
         self.beaconList = []
         #!CREATE THE INITIAL VERTEX
         self.pathfindingMovements = []
+        self.finishing = False
         self.prevVertex = self.getVertex()
         
 
@@ -431,20 +432,28 @@ class MyRob(CRobLinkAngs):
             None
         """
         id = currVertex.id
-        # closestVertex = None
-        # mincost = math.inf
-        # for vertex in self.vertexList:
-        #     if vertex.id != id:
-        #         cost = search.directionqueue(self.vertexList, id, vertex.id)
-        #         if cost< mincost:
-        #             mincost = cost
-        #             closestVertex = vertex
-        
-        directionqueue = min ( 
-            map ( lambda vertex: search.directionqueue(self.vertexList, id, vertex.id), self.vertexList ),
-            key = lambda x: len(x)
-        )
-        return directionqueue
+        print("targetVertex",targetVertex)
+        if targetVertex == None:
+
+            unexploredvertexes = [ 
+                    vertex 
+                    for vertex in self.vertexList 
+                    if any(edge == 1 for edge in vertex.edges.values()) 
+                    and vertex.id != id
+            ]
+
+            directionqueue = min ( 
+                map ( lambda vertex: search.directionqueue(self.vertexList, id, vertex.id), unexploredvertexes ),
+                key = lambda x: len(x),
+                default=[]
+            )
+            print(directionqueue)
+            self.pathfindingMovements = directionqueue
+        else:
+            print(self.vertexList)
+            directionqueue = search.directionqueue(self.vertexList, id, targetVertex)
+            print(directionqueue)
+            self.pathfindingMovements = directionqueue
     
     def getVertex(self, id : int = None) -> Vertex:
         """create a vertex in the current position of the robot or return the existing one
@@ -637,7 +646,6 @@ class MyRob(CRobLinkAngs):
 
         vertex.update( self.direction, visited=True, connects=(self.prevVertex.id) )
         self.prevVertex.update( INVERSEDIRECTIONMAP[self.direction], connects=(vertex.id),visited=True)
-        
         if self.pathfindingMovements:
             chosenDirection = self.pathfindingMovements.pop(0)
         else:
@@ -645,19 +653,33 @@ class MyRob(CRobLinkAngs):
             # priority is down, right, up, left
             if availableTurns:
                 chosenDirection = [
-                    direction for direction in PRIORITY
+                    direction for direction in RIGHTHANDRULE[self.direction]
                     if direction in availableTurns
                 ][0]
+            # ?------------------------------LOGGING----------------------------
+                print(f"{bcolors.CYAN}availableTurns{bcolors.RESET} {availableTurns}")
+                print(f"{bcolors.CYAN}chosenDirection{bcolors.RESET} {chosenDirection}")
+            # ?-----------------------------------------------------------------    
             else:
                 #! Calculate the path to the closest unvisited vertex and Move one step in that direction
-                self.findPath(vertex)
-                if self.pathfindingMovements:
-                    chosenDirection = self.pathfindingMovements.pop(0)
-                    
-                self.pathfindingMovements = path
-                
-        print(f"{bcolors.CYAN}availableTurns{bcolors.RESET} {availableTurns}")
-        print(f"{bcolors.CYAN}chosenDirection{bcolors.RESET} {chosenDirection}")
+
+                if self.finishing:
+                    print(f"{bcolors.RED}IM DONE{bcolors.RESET}")
+                    self.finish()
+                    sys.exit()
+                else:
+                    self.findPath(vertex)
+                    if self.pathfindingMovements:
+                        chosenDirection = self.pathfindingMovements.pop(0)
+                    else:
+                        print(f"{bcolors.RED}NO MORE PATH, GOING BACK TO ORIGIN{bcolors.RESET}")
+                        self.findPath(vertex, targetVertex=0)
+                        self.finishing = True
+                        chosenDirection = self.pathfindingMovements.pop(0)
+                        
+
+
+
         while not self.orient(chosenDirection): #!eventually reqwrite this
             pass
         
