@@ -6,7 +6,9 @@ import xml.etree.ElementTree as ET
 import itertools
 import search
 import time
-
+import c3path
+import CreateMap
+import EndConnections
 class bcolors:
     """class for colors in the terminal
     """
@@ -85,13 +87,11 @@ RIGHTHANDRULE = {
     "down": ["left", "down", "right", "up"]
 }
 class Beacon():
-    """ A beacon in the map """
-    id_iter = itertools.count()
-    
-    def __init__(self,x=-1,y=-1,vertexList=[]):
+    """ A beacon in the map """    
+    def __init__(self,x=-1,y=-1,vertexList=[],id=-1):
         self.x = x
         self.y = y
-        self.id = next(Beacon.id_iter)
+        self.id = id
         if (x,y) in vertexList:
             self.isVertex = True
             self.vertex = vertexList[vertexList.index((x,y))]
@@ -100,16 +100,20 @@ class Beacon():
             self.vertex = None
         self.connects = {}
         
+    def update(self, vertexList: list) -> None:
+        """fucking """
+        print("at beacon update")
+        for vertex in vertexList:
+            if vertex == [self.x, self.y]:
+                self.isVertex = True
+                self.vertex = vertexList[vertexList.index((self.x,self.y))]
+            
     def __repr__(self) -> str:
-        return f"Beacon at ({self.x},{self.y}, id: {self.id}, isVertex: {self.isVertex}, vertex: {self.vertex})"
+        return f"Beacon at ({self.x},{self.y}, id: {self.id}, isVertex: {self.isVertex}, vertex: {self.vertex})\n"
     
-    def __eq__(self, o: list) -> bool:
-        # get coordinates and check if equal to list of coordinates
-        return (self.x, self.y) == (o[0], o[1])
+    def __eq__(self, o) -> bool:
+        return (self.x, self.y) == (o.x, o.y)
     
-    def update(self,connections = None):
-        self.connects = connections
-        
     
 class Vertex():
     """A vertex in the graph
@@ -129,7 +133,7 @@ class Vertex():
     """
     id_iter = itertools.count()
 
-    def __init__(self, x=-1, y=-1):
+    def __init__(self, x=-1, y=-1, isDeadEnd=False):
         self.x = x
         self.y = y
         # 0 unknown; 1 exists but unexplred ; 2 -Exists and explored ;
@@ -139,7 +143,7 @@ class Vertex():
                       "right": 0}
         self.connects = {}
         self.id = next(Vertex.id_iter)
-        self.isDeadEnd = False
+        self.isDeadEnd = isDeadEnd
 
     def __repr__(self) -> str:
         return f"Vertex {self.id} at ({self.x},{self.y}), edges: {self.edges}, connects: {self.connects} \n"
@@ -234,13 +238,14 @@ class MyRob(CRobLinkAngs):
         self.turnDirection = ""
 
         self.vertexList= []
-        self.beaconList = []
-        #!CREATE THE INITIAL VERTEX
+        
         self.pathfindingMovements = []
         self.finishing = False
-        self.prevVertex = self.getVertex()
+        self.prevVertex = None
         
-
+        self.prevBeacon = -1
+        self.beaconList = []
+        
         self.detectedSensorsCount = [0, 0, 0, 0, 0, 0, 0, 0]
 
     # In this map the center of cell (i,j), (i in 0..6, j in 0..13) is mapped to labMap[i*2][j*2].
@@ -344,17 +349,34 @@ class MyRob(CRobLinkAngs):
             self.finish()
             sys.exit()
         else:
-            self.prevVertex.updateEdges(detectedDirections)
-            
-            chosenDirection = [
-                        direction for direction in PRIORITY
-                        if direction in detectedDirections
-                    ][0]
+            if detectedDirections == ["right","left"] or detectedDirections == ["up","down"]:
+                print("LINEEEE")
+                chosenDirection = [
+                    direction for direction in PRIORITY
+                    if direction in detectedDirections
+                ][0]
 
-            while not self.orient(chosenDirection):
-                pass
-            self.direction = chosenDirection
-            self.state= "wander"
+                while not self.orient(chosenDirection):
+                    pass
+                print(self.vertexList)
+                    
+                self.state= "wander"
+
+            else:
+                print("NOT LINEEEE")
+                self.prevVertex = self.getVertex()
+                self.prevVertex.updateEdges(detectedDirections)
+                
+                chosenDirection = [
+                            direction for direction in PRIORITY
+                            if direction in detectedDirections
+                        ][0]
+
+                while not self.orient(chosenDirection):
+                    pass
+                self.direction = chosenDirection
+                print(self.vertexList)
+                self.state= "wander"
         
     def updateGPS(self, inLPower : float, inRPower : float, correction : bool = False) -> None:
         """update the GPS coordinates of the robot
@@ -544,12 +566,12 @@ class MyRob(CRobLinkAngs):
                 leftCounter["ponta"] += int(self.measures.lineSensor[0])
                 leftCounter["lado"] += int(self.measures.lineSensor[1])
                 # ?------------------------------LOGGING----------------------------
-                print(
-                    f"\t{bcolors.PURPLE}first call{bcolors.RESET} {self.measures.lineSensor}")
-                print(
-                    f"\t\t{bcolors.CYAN}rightCounter: {rightCounter}{bcolors.RESET}")
-                print(
-                    f"\t\t{bcolors.CYAN}leftCounter: {leftCounter}{bcolors.RESET}")
+                # print(
+                #     f"\t{bcolors.PURPLE}first call{bcolors.RESET} {self.measures.lineSensor}")
+                # print(
+                #     f"\t\t{bcolors.CYAN}rightCounter: {rightCounter}{bcolors.RESET}")
+                # print(
+                #     f"\t\t{bcolors.CYAN}leftCounter: {leftCounter}{bcolors.RESET}")
                 # ?-----------------------------------------------------------------
                 self.move("stop")
 
@@ -560,12 +582,12 @@ class MyRob(CRobLinkAngs):
                 leftCounter["ponta"] += int(self.measures.lineSensor[0])
                 leftCounter["lado"] += int(self.measures.lineSensor[1])
                 # ?------------------------------LOGGING----------------------------
-                print(
-                    f"\t{bcolors.PURPLE}second call{bcolors.RESET} {self.measures.lineSensor}")
-                print(
-                    f"\t\t{bcolors.CYAN}rightCounter: {rightCounter}{bcolors.RESET}")
-                print(
-                    f"\t\t{bcolors.CYAN}leftCounter: {leftCounter}{bcolors.RESET}")
+                # print(
+                #     f"\t{bcolors.PURPLE}second call{bcolors.RESET} {self.measures.lineSensor}")
+                # print(
+                #     f"\t\t{bcolors.CYAN}rightCounter: {rightCounter}{bcolors.RESET}")
+                # print(
+                #     f"\t\t{bcolors.CYAN}leftCounter: {leftCounter}{bcolors.RESET}")
 
                 if sum(rightCounter.values()) > 2 and rightCounter["ponta"] > 1:
                     print(f"\t{bcolors.GREEN}right turn{bcolors.RESET}")
@@ -592,11 +614,11 @@ class MyRob(CRobLinkAngs):
                     leftCounter["ponta"] += int(self.measures.lineSensor[0])
                     leftCounter["lado"] += int(self.measures.lineSensor[1])
                     # ?------------------------------LOGGING----------------------------
-                    print(f"\t{bcolors.PURPLE}third call{bcolors.RESET} {self.measures.lineSensor}")
-                    print(
-                        f"\t\t{bcolors.CYAN}rightCounter: {rightCounter}{bcolors.RESET}")
-                    print(
-                        f"\t\t{bcolors.CYAN}leftCounter: {leftCounter}{bcolors.RESET}")
+                    # print(f"\t{bcolors.PURPLE}third call{bcolors.RESET} {self.measures.lineSensor}")
+                    # print(
+                    #     f"\t\t{bcolors.CYAN}rightCounter: {rightCounter}{bcolors.RESET}")
+                    # print(
+                    #     f"\t\t{bcolors.CYAN}leftCounter: {leftCounter}{bcolors.RESET}")
                     # ?-----------------------------------------------------------------
                     if sum(rightCounter.values()) > 2 and rightCounter["ponta"] > 1:
                         print(f"\t{bcolors.GREEN}right turn{bcolors.RESET}")
@@ -612,26 +634,8 @@ class MyRob(CRobLinkAngs):
         # nothing found
         # ?------------------------------LOGGING----------------------------
         print(f"{bcolors.YELLOW}Noise{bcolors.RESET}")
-        self.state = "wander"
-
-    def turning(self):
-        """turns the robot"""
-        print(f"{bcolors.PURPLE}turning{bcolors.RESET}")
-        print(self.measures.lineSensor)
-        if self.turnDirection == "right":
-            if self.measures.lineSensor[5] == 1 and self.measures.lineSensor[6] == 1:
-                self.move("right")
-                return
-            elif self.measures.lineSensor[5] == 1:
-                self.move("slightRight")
-                return
-            elif self.measures.lineSensor[2:5].count("1") >= 2:
-                self.turnDirection = ""
-                self.state = "wander"
-                self.move("front")
-                return
-
          # ------------------------------------
+        self.state = "wander"
     def decide(self):
         """decides which way to go"""
         vertex = self.getVertex()
@@ -644,8 +648,12 @@ class MyRob(CRobLinkAngs):
         while not self.adjustForward(): #!eventually reqwrite this
             pass
 
-        vertex.update( self.direction, visited=True, connects=(self.prevVertex.id) )
-        self.prevVertex.update( INVERSEDIRECTIONMAP[self.direction], connects=(vertex.id),visited=True)
+        if self.prevVertex:
+            vertex.update( self.direction, visited=True, connects=(self.prevVertex.id) )    
+            self.prevVertex.update( INVERSEDIRECTIONMAP[self.direction], connects=(vertex.id),visited=True)
+        else:
+            vertex.update( self.direction, visited=True )
+            
         if self.pathfindingMovements:
             chosenDirection = self.pathfindingMovements.pop(0)
         else:
@@ -653,7 +661,7 @@ class MyRob(CRobLinkAngs):
             # priority is down, right, up, left
             if availableTurns:
                 chosenDirection = [
-                    direction for direction in RIGHTHANDRULE[self.direction]
+                    direction for direction in PRIORITY
                     if direction in availableTurns
                 ][0]
             # ?------------------------------LOGGING----------------------------
@@ -661,24 +669,14 @@ class MyRob(CRobLinkAngs):
                 print(f"{bcolors.CYAN}chosenDirection{bcolors.RESET} {chosenDirection}")
             # ?-----------------------------------------------------------------    
             else:
-                #! Calculate the path to the closest unvisited vertex and Move one step in that direction
-
-                if self.finishing:
-                    print(f"{bcolors.RED}IM DONE{bcolors.RESET}")
-                    self.finish()
-                    sys.exit()
+                self.findPath(vertex)
+                if self.pathfindingMovements:
+                    chosenDirection = self.pathfindingMovements.pop(0)
                 else:
-                    self.findPath(vertex)
-                    if self.pathfindingMovements:
-                        chosenDirection = self.pathfindingMovements.pop(0)
-                    else:
-                        print(f"{bcolors.RED}NO MORE PATH, GOING BACK TO ORIGIN{bcolors.RESET}")
-                        self.findPath(vertex, targetVertex=0)
-                        self.finishing = True
-                        chosenDirection = self.pathfindingMovements.pop(0)
-                        
-
-
+                    print(f"{bcolors.RED}NO MORE PATH, GOING BACK TO ORIGIN{bcolors.RESET}")
+                    self.findPath(vertex, targetVertex=0)
+                    self.finishing = True
+                    chosenDirection = self.pathfindingMovements.pop(0)
 
         while not self.orient(chosenDirection): #!eventually reqwrite this
             pass
@@ -692,7 +690,23 @@ class MyRob(CRobLinkAngs):
         print(f"{bcolors.CYAN}Vertices{bcolors.RESET} {[vertex for vertex in self.vertexList]}"  )
         self.state = "wander"
                 
+    def end(self):
+        """ends the program"""
+        print(f"{bcolors.RED}IM DONE{bcolors.RESET}")
+        print(self.vertexList)
 
+        beacon: Beacon
+        for beacon in self.beaconList:
+            print(beacon)
+            beacon.update(self.vertexList)
+        self.vertexList = EndConnections.appendBeacons(self.vertexList, self.beaconList)
+        print(self.vertexList)
+        print(self.beaconList)
+        CreateMap.generate(self.vertexList)
+        # c3path.Generate_path_file(self.vertexList)
+        self.finish()
+        sys.exit()
+    
     # ------------------------------------
     def adjustForward(self):
         """
@@ -703,12 +717,12 @@ class MyRob(CRobLinkAngs):
 
         """
         # ? ------------------------------LOGGING----------------------------
-        if self.direction in ["right", "left"]:
-            print(
-                f"\t{bcolors.WHITE}{bcolors.UNDERLINE}Distance Left to center:{bcolors.RESET} {2* round(self.x/2) - self.x}")
-        if self.direction in ["up", "down"]:
-            print(
-                f"\t{bcolors.WHITE}{bcolors.UNDERLINE}Distance Left to center:{bcolors.RESET} {2* round(self.y/2) - self.y}")
+        # if self.direction in ["right", "left"]:
+        #     print(
+        #         f"\t{bcolors.WHITE}{bcolors.UNDERLINE}Distance Left to center:{bcolors.RESET} {2* round(self.x/2) - self.x}")
+        # if self.direction in ["up", "down"]:
+        #     print(
+        #         f"\t{bcolors.WHITE}{bcolors.UNDERLINE}Distance Left to center:{bcolors.RESET} {2* round(self.y/2) - self.y}")
         # ?-----------------------------------------------------------------
 
         # while not self.orient(self.direction):
@@ -728,9 +742,9 @@ class MyRob(CRobLinkAngs):
         elif self.direction == "down":
             rem_distance = self.y -roundPowerOf2(self.y)
         #?--------------
-        print(self.y)
-        print(roundPowerOf2(self.y))
-        print("rem_distance_adjustForward", rem_distance)
+        # print(self.y)
+        # print(roundPowerOf2(self.y))
+        # print("rem_distance_adjustForward", rem_distance)
         #?--------------
         
         if rem_distance > 0:
@@ -742,21 +756,22 @@ class MyRob(CRobLinkAngs):
         else:
             #! WE CAN TAKE MORE CONCLUSION WITH THESE SENSORS
             # ? ------------------------------LOGGING----------------------------
-            print("-----------------END ADJUST FORWARD-------------------")
-            print(
-                f"\t{bcolors.WHITE}{bcolors.UNDERLINE}Detected Sensors in Adjust Forward{bcolors.RESET} {self.detectedSensorsCount} \n")
-            for i in range(7):
-                print(self.detectedSensorsCount[i] /
-                      self.detectedSensorsCount[7], '\n')
-            print("Detected front?:", ((self.detectedSensorsCount[2] + self.detectedSensorsCount[3] + self.detectedSensorsCount[4] )/ (self.detectedSensorsCount[7]*3) )> 0.6)
-            print("Detected Right?(sensor6+7/total):",
-                  (self.detectedSensorsCount[6]+self.detectedSensorsCount[5]) / (2*self.detectedSensorsCount[7]))
-            print("Detected Left?(sensor0+1/total):",
-                  (self.detectedSensorsCount[0]+self.detectedSensorsCount[1]) / (2*self.detectedSensorsCount[7]))
-            print("------------------------------------")
+            # print("-----------------END ADJUST FORWARD-------------------")
+            # print(
+            #     f"\t{bcolors.WHITE}{bcolors.UNDERLINE}Detected Sensors in Adjust Forward{bcolors.RESET} {self.detectedSensorsCount} \n")
+            # for i in range(7):
+            #     print(self.detectedSensorsCount[i] /
+            #           self.detectedSensorsCount[7], '\n')
+            # print("Detected front?:", ((self.detectedSensorsCount[2] + self.detectedSensorsCount[3] + self.detectedSensorsCount[4] )/ (self.detectedSensorsCount[7]*3) )> 0.6)
+            # print("Detected Right?(sensor6+7/total):",
+            #       (self.detectedSensorsCount[6]+self.detectedSensorsCount[5]) / (2*self.detectedSensorsCount[7]))
+            # print("Detected Left?(sensor0+1/total):",
+            #       (self.detectedSensorsCount[0]+self.detectedSensorsCount[1]) / (2*self.detectedSensorsCount[7]))
+            # print("------------------------------------")
             # ?-----------------------------------------------------------------
-            if (self.detectedSensorsCount[2] + self.detectedSensorsCount[3] + self.detectedSensorsCount[4]) / (self.detectedSensorsCount[7]*3 )> 0.6:
-                self.getVertex().update(self.direction, ["front"])
+            if not self.finishing:
+                if (self.detectedSensorsCount[2] + self.detectedSensorsCount[3] + self.detectedSensorsCount[4]) / (self.detectedSensorsCount[7]*3 )> 0.6:
+                    self.getVertex().update(self.direction, ["front"])
             self.state = "decide"
             return True
 
@@ -764,9 +779,9 @@ class MyRob(CRobLinkAngs):
         """Orients the robot in the given direction"""
 
         # ? ------------------------------LOGGING----------------------------
-        print("------------------------------------")
-        print(f"{bcolors.PURPLE}orient{bcolors.RESET}")
-        print("direction ", dir)
+        # print("------------------------------------")
+        # print(f"{bcolors.PURPLE}orient{bcolors.RESET}")
+        # print("direction ", dir)
         # print(self.measures.compass > DIRECTIONMAP[dir] + 5 and self.measures.compass < DIRECTIONMAP[dir ] + 89)
         # print(self.measures.compass > DIRECTIONMAP[dir] -175 and self.measures.compass < DIRECTIONMAP[dir] -91)
         # if self.measures.compass > DIRECTIONMAP[dir] + 5 and self.measures.compass < DIRECTIONMAP[dir ] + 89:
@@ -783,7 +798,7 @@ class MyRob(CRobLinkAngs):
         # print("------------------------------------")
 
         if abs(remaining) <= 2:
-            # print("REMAINING <=2 TRUE")
+            print(f"{bcolors.GREEN}REMAINING <=2 TRUE{bcolors.RESET}")
             return True
         else:
             power = round(math.radians(remaining) -
@@ -821,20 +836,32 @@ class MyRob(CRobLinkAngs):
     
     def wander(self):
         # ? ------------------------------LOGGING----------------------------
-        print(f"{bcolors.PURPLE}Wander{bcolors.RESET} {self.measures.lineSensor}")
-        print(f"\t{bcolors.CYAN}{self.x}{bcolors.RESET}")
-        print(f"\t{bcolors.CYAN}{self.y}{bcolors.RESET}")
-        print(f"\t{bcolors.RED}Allow Turns:{bcolors.RESET}")
-        if self.direction == "right": 
-            print("\t\t",(self.direction == "right" and (self.x+100) % 2 >= 1.3))
-        elif self.direction == "left":
-            print("\t\t",(self.direction == "left" and (self.x+100) % 2 <= 0.7))
-        elif self.direction == "up":
-            print("\t\t",(self.direction == "up" and (self.y+100) % 2 >= 1.3))
-        elif self.direction == "down":
-            print("\t\t",(self.direction == "down" and (self.y+100) % 2 <= 0.7))
+        # print(f"{bcolors.PURPLE}Wander{bcolors.RESET} {self.measures.lineSensor}")
+        # print(f"\t{bcolors.CYAN}{self.x}{bcolors.RESET}")
+        # print(f"\t{bcolors.CYAN}{self.y}{bcolors.RESET}")
+        # print(f"\t{bcolors.RED}Allow Turns:{bcolors.RESET}")
+        # if self.direction == "right": 
+        #     print("\t\t",(self.direction == "right" and (self.x+100) % 2 >= 1.3))
+        # elif self.direction == "left":
+        #     print("\t\t",(self.direction == "left" and (self.x+100) % 2 <= 0.7))
+        # elif self.direction == "up":
+        #     print("\t\t",(self.direction == "up" and (self.y+100) % 2 >= 1.3))
+        # elif self.direction == "down":
+        #     print("\t\t",(self.direction == "down" and (self.y+100) % 2 <= 0.7))
         # ?-----------------------------------------------------------------
+        if self.measures.ground >= 0:
+            beacon = (Beacon(x = roundPowerOf2(self.x),y =  roundPowerOf2(self.y), vertexList = self.vertexList ,id= self.measures.ground))
+            if not beacon in self.beaconList:
+                print(f"{bcolors.GREEN}Beacon{bcolors.RESET} {beacon}")
+                self.beaconList.append(beacon)
+                print("BeaconList", self.beaconList)
 
+        if roundPowerOf2(self.x) == 0 and roundPowerOf2(self.y) == 0:
+            if self.finishing:
+                while not self.adjustForward():
+                    pass
+                self.end()
+            
         if (int(self.measures.lineSensor[6])):
             if (
                 (self.direction == "right" and (self.x+100) % 2 >= 1.3)
@@ -871,27 +898,8 @@ class MyRob(CRobLinkAngs):
             self.move("front")
             
             
-        elif self.lineSensorsZero():#!UNTESTED IF NO LNE DETECTED 
-            if self.direction == "right":
-                if self.measures.compass > 0:
-                    self.move("right")
-                else:
-                    self.move("left")
-            if self.direction == "left":
-                if self.measures.compass > 0:
-                    self.move("left")
-                else:
-                    self.move("right")
-            if self.direction == "up":
-                if self.measures.compass > 90:
-                    self.move("right")
-                else:
-                    self.move("left")
-            if self.direction == "down":
-                if self.measures.compass > -90:
-                    self.move("right")
-                else:
-                    self.move("left")
+        elif self.lineSensorsZero():
+            self.state = "decide"
         else:
             self.move("front")
 
