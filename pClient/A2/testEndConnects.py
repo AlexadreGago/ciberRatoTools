@@ -1,5 +1,7 @@
 import itertools
 
+from pClient.A2.artemis import INVERSEDIRECTIONMAP, TURNSMAP
+
 class bcolors:
     """class for colors in the terminal
     """

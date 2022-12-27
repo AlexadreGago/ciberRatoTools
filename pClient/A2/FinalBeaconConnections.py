@@ -1,4 +1,7 @@
 import itertools
+import search
+from EndConnections import appendBeacons
+import time
 
 class bcolors:
     """class for colors in the terminal
@@ -106,7 +109,7 @@ class Vertex():
         else:
             return (self.x, self.y) == (o[0], o[1])
 
-    def update(self, robot_dir, vlist = [],turns=[], visited=False, connects = None):
+    def update(self, robot_dir,turns=[], visited=False, connects = None, vlist = []):
         """updates the possible turns of this vertex
         #! in the future, update the connects as well
         #! also estamos a deixar dar overwrite sempre que passa por um vertice, nao sei se e bom
@@ -133,7 +136,7 @@ class Vertex():
                     self.edges[edge] = 1
         if connects is not None:
             self.connects[INVERSEDIRECTIONMAP[robot_dir]] = connects.id
-            vlist[vlist.index(connects)].connects[robot_dir] = self.id
+            connects.connects[robot_dir] = self.id
             return
     def updateEdges(self, edges):
         for edge in edges:
@@ -154,70 +157,65 @@ class Vertex():
             for direction in self.edges
             if self.edges[direction] == 1
         ]
-
-
-def roundPowerOf2(x):
-    """round to nearest multiple of 2
-
-    Args:
-        x (float): the number to round
-
-    Returns:
-        int: the rounded number
-    """
-    return int(round(x / 2.0)) * 2
-
-def appendBeacons(vertexList,beaconList,vCount):
-    Vertex.id_iter = itertools.count(vCount)
+def InsertBeaconsInVertexList(vertexList, beaconList):
+    beacon: Beacon
     for beacon in beaconList:
-        if beacon.isVertex:#* Se o beacon for um vertece nao se passa nada
-            print("------------------")
-            # print(f"{bcolors.GREEN}Beacon {beacon.id} is a vertex{bcolors.RESET}")
-            #print(f"Vertex id: {beacon.vertex}")
-            # print(f"Connects: {beacon.connects}")
-        else:#* Se for temos de criar um vertice e adicionar as connections e alterar as connections dos outros vertices
-            # print("------------------")
-            # print(f"{bcolors.RED}Beacon {beacon.id} is not a vertex{bcolors.RESET}")
-            # print(f"Connects: {beacon.connects}")
-            # print("correction connections")
-            
-            vertex_beacon = Vertex(beacon.x,beacon.y) #* criacao do vertice novo
-            vertex_beacon.isBeacon = True
-            v_ids = []
-            for connection in beacon.connects:#* meter as edges e connects do vertice novo
-                v_ids.append(beacon.connects[connection])#* isto é para meter os ids dos vertices que o beacon conecta depois
-                if connection == "up":
-                    vertex_beacon.edges["up"] = 1
-                    vertex_beacon.connects["up"] = beacon.connects[connection]
-                    # print(f"up: {beacon.connects[connection]}")
-                    
-                if connection == "down":
-                    vertex_beacon.edges["down"] = 1
-                    vertex_beacon.connects["down"] = beacon.connects[connection]
-                    # print(f"down: {beacon.connects[connection]}")
-                    
-                if connection == "left":
-                    vertex_beacon.edges["left"] = 1
-                    vertex_beacon.connects["left"] = beacon.connects[connection]
-                    # print(f"left: {beacon.connects[connection]}")
-                    
-                if connection == "right":
-                    vertex_beacon.edges["right"] = 1
-                    vertex_beacon.connects["right"] = beacon.connects[connection]
-                    # print(f"right: {beacon.connects[connection]}")
-                    
-            print(v_ids)
-            for vertex in vertexList:#* alterar as connections dos outros vertices deve haver uma maneira mais facil de fazer isto  mas ja esta
-                if vertex.id in v_ids:
-                    for connection in vertex.connects:
-                        if vertex.connects[connection] in v_ids:
-                            vertex.connects[connection] = vertex_beacon.id
-                            print("altered: ",vertex)
-                    
+        print(beacon)
+        beacon.update(vertexList)
+    vertexList = appendBeacons(vertexList, beaconList,len(vertexList))
 
-            # print("New Vertex ",vertex_beacon)
-            vertexList.append(vertex_beacon)
-            # print(vertexList)
+
+    print(beaconList)
+    print(vertexList)
+    for vertex in vertexList:
+        if vertex.connects == {}:
+            x = vertex.x
+            y = vertex.y
+            dir = [beacon.direction for beacon in beaconList if (beacon.x,beacon.y) == (x,y)][0]
+
+            if dir == "up" or dir == "down":
+                vertex.edges["up"] = 1
+                vertex.edges["down"] = 1
+                
+                while vertex.connects == {}:
+                    print("Searching for up")
+                    y = y+2
+                    for vertex2 in vertexList:
+                        if (vertex2.x,vertex2.y) == (x,y):
+                            vertex.connects["up"] = vertex2.id
+                            vertex2.connects["down"] = vertex.id
+                            break
+                x = vertex.x
+                y = vertex.y
+                while len(vertex.connects) == 1:
+                    print("Searching for down")
+                    y = y-2
+                    for vertex2 in vertexList:
+                        if (vertex2.x,vertex2.y) == (x,y):
+                            vertex.connects["down"] = vertex2.id
+                            vertex2.connects["up"] = vertex.id
+                            break
+                
+            else:
+                vertex.edges["left"] = 1
+                vertex.edges["right"] = 1
+                
+                while vertex.connects == {}:
+                    print("Searching for left")
+                    x = x-2
+                    for vertex2 in vertexList:
+                        if (vertex2.x,vertex2.y) == (x,y):
+                            vertex.connects["left"] = vertex2.id
+                            vertex2.connects["right"] = vertex.id
+                            break
+                x = vertex.x
+                y = vertex.y
+                while len(vertex.connects) == 1:
+                    print("Searching for right")
+                    x = x+2
+                    for vertex2 in vertexList:
+                        if (vertex2.x,vertex2.y) == (x,y):
+                            vertex.connects["right"] = vertex2.id
+                            vertex2.connects["left"] = vertex.id
+                            break
     return vertexList
-
-        

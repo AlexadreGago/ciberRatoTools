@@ -1,4 +1,85 @@
 import itertools
+import search
+import pickle
+import CreateMap
+class bcolors:
+    """class for colors in the terminal
+    """
+    BOLD = '\033[1m'
+    DARK = '\033[2m'
+    ITALIC = '\033[3m'
+    UNDERLINE = '\033[4m'
+    BLINK = '\033[5m'
+    INVERT = '\033[7m'
+    HIDDEN = '\033[8m'
+
+    GREY = '\033[90m'
+    RED = '\033[91m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    BLUE = '\033[94m'
+    PURPLE = '\033[95m'
+    CYAN = '\033[96m'
+    WHITE = '\033[97m'
+
+    RESET = '\033[0m'
+
+
+CELLROWS = 7
+CELLCOLS = 14
+MOTORSTRENGTHMAP = {
+    "front": (0.12, 0.12),
+    "frontslow": (0.03, 0.03),
+    "backward": (-0.12, -0.12),
+    "left": (-0.12, 0.12),
+    "right": (0.12, -0.12),
+    "slightLeft": (0.08, 0.12),
+    "slightRight": (0.12, 0.08),
+    "stop": (0, 0),
+    "slowbackward": (-0.06, -0.06)
+    
+}
+SLOWMOTORSTRENGTHMAP = {
+    "front": (0.03, 0.03),
+    "frontslow": (0.01, 0.01),
+    "backward": (-0.03, -0.03),
+    "left": (-0.03, 0.03),
+    "right": (0.03, -0.03),
+    "slightLeft": (0.01, 0.03),
+    "slightRight": (0.03, 0.01),
+    "stop": (0, 0),
+    "slowbackward": (-0.01, -0.01)
+}
+DIRECTIONMAP = {
+    "right": 0,
+    "up": 90,
+    "left": -180,
+    "down": -90
+}
+
+INVERSEDIRECTIONMAP = {
+    "left": "right",
+    "right": "left",  # {"left": "up", "right": "down"},
+    "up": "down",
+    "down": "up"
+}
+
+TURNSMAP = {
+    "right": {"right": "down", "left": "up", "front": "right", "back": "left"},
+    "left": {"right": "up", "left": "down", "front": "left", "back": "right"},
+    "up": {"right": "right", "left": "left", "front": "up", "back": "down"},
+    "down": {"right": "left", "left": "right", "front": "down", "back": "up"}
+}
+
+PRIORITY = ["down", "right", "up", "left"]
+
+RIGHTHANDRULE = {
+    "right": ["down", "right", "up", "left"],
+    "up": ["right", "up", "left", "down"],
+    "left": ["up", "left", "down", "right"],
+    "down": ["left", "down", "right", "up"]
+}
+
 class Beacon():
     """ A beacon in the map """    
     def __init__(self,x=-1,y=-1,vertexList=[],id=-1):
@@ -63,9 +144,12 @@ class Vertex():
 
     def __eq__(self, o: list) -> bool:
         # get coordinates and check if equal to list of coordinates
-        return (self.x, self.y) == (o[0], o[1])
+        if type(o) == Vertex:
+            return (self.x, self.y) == (o.x, o.y)
+        else:
+            return (self.x, self.y) == (o[0], o[1])
 
-    def update(self, robot_dir, turns=[], visited=False, connects = None):
+    def update(self, robot_dir, vlist = [],turns=[], visited=False, connects = None):
         """updates the possible turns of this vertex
         #! in the future, update the connects as well
         #! also estamos a deixar dar overwrite sempre que passa por um vertice, nao sei se e bom
@@ -91,7 +175,8 @@ class Vertex():
                 if self.edges[edge] == 0:
                     self.edges[edge] = 1
         if connects is not None:
-            self.connects[INVERSEDIRECTIONMAP[robot_dir]] = connects
+            self.connects[INVERSEDIRECTIONMAP[robot_dir]] = connects.id
+            connects.connects[robot_dir] = self.id
             return
     def updateEdges(self, edges):
         for edge in edges:
@@ -114,18 +199,30 @@ class Vertex():
         ]
 
     
-v0 = Vertex(0,0)
-v1 = Vertex(1,0)
+#vertexlist is pickle
+with open("vertexList.pickle", "rb") as f:
+    vertexlist = pickle.load(f)
 
-vlist = [v0,v1]
+#beaconlist is pickle
+with open("beaconList.pickle", "rb") as f:
+    beaconlist = pickle.load(f)
 
-b0 = Beacon(0,0, id=0)
-b1 = Beacon(1,0, id=1)
-b2 = Beacon(2,0, id=2)
+print(vertexlist)
+print([vertex for vertex in vertexlist if 0 in vertex.connects.values()])
 
+for vertex in vertexlist:
+    if vertex.id in vertex.connects.values():
+        print(vertex)
+        vertex.connects = {k : v for k, v in vertex.connects.items() if v != vertex.id}
+        for vertex2 in vertexlist:
+            for connect in vertex2.connects:
+                if vertex2.connects[connect] == vertex.id:
+                    vertex.connects[INVERSEDIRECTIONMAP[connect]] = vertex2.id
+                    
+print(vertexlist[15])
+print([vertex for vertex in vertexlist if 0 in vertex.connects.values()])
 
-print(b0)
-print(v0)
-b0.update(vlist)
-print(b0)
+print(search.directionqueue(vertexlist, 35, 15))
+
+CreateMap.generate(vertexlist)
 
