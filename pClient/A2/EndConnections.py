@@ -169,6 +169,9 @@ def roundPowerOf2(x):
 
 def appendBeacons(vertexList,beaconList,vCount):
     Vertex.id_iter = itertools.count(vCount)
+
+    newids = []
+
     for beacon in beaconList:
         if beacon.isVertex:#* Se o beacon for um vertece nao se passa nada
             print("------------------")
@@ -182,6 +185,7 @@ def appendBeacons(vertexList,beaconList,vCount):
             # print("correction connections")
             
             vertex_beacon = Vertex(beacon.x,beacon.y) #* criacao do vertice novo
+            newids.append(vertex_beacon.id)
             vertex_beacon.isBeacon = True
             v_ids = []
             for connection in beacon.connects:#* meter as edges e connects do vertice novo
@@ -218,6 +222,6 @@ def appendBeacons(vertexList,beaconList,vCount):
             # print("New Vertex ",vertex_beacon)
             vertexList.append(vertex_beacon)
             # print(vertexList)
-    return vertexList
+    return vertexList, newids
 
         

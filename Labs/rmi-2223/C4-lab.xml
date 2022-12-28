@@ -7,6 +7,10 @@
 		<Target X="20" Y="8.0" Radius="1.0"/>
 		<Beacon X="8" Y="4.0" Height="4.0"/>
 		<Target X="8" Y="4.0" Radius="1.0"/>
+		<Beacon X="10" Y="4.0" Height="4.0"/>
+		<Target X="10" Y="4.0" Radius="1.0"/>
+		<Beacon X="10" Y="8.0" Height="4.0"/>
+		<Target X="10" Y="8.0" Radius="1.0"/>
 		<Row  Pos="12" Height="0.0" Pattern="                                         "  />
 		<Row  Pos="11" Height="0.0" Pattern="  +  +  +  +--+--+--+--+  +  +--+--+--+  "  />
 		<Row  Pos="10" Height="0.0" Pattern="           |  |        |     |        |  "  />
@@ -17,7 +21,7 @@
 		<Row  Pos="5"  Height="0.0" Pattern="  +  +--+--+--+  +--+--+--+--+--+  +--+  "  />
 		<Row  Pos="4"  Height="0.0" Pattern="     |           |  |              |     "  />
 		<Row  Pos="3"  Height="0.0" Pattern="  +--+  +--+--+--+  +  +  +--+  +  +--+  "  />
-		<Row  Pos="2"  Height="0.0" Pattern="  |  |  |        |  |     |  |        |  "  />
+		<Row  Pos="2"  Height="0.0" Pattern="  |  |  |        |  |     |  |        |  "  /> 
 		<Row  Pos="1"  Height="0.0" Pattern="  +--+--+--+--+--+  +--+--+  +--+--+--+  "  />
 		<Row  Pos="0"  Height="0.0" Pattern="                                         "  />
 </Lab>

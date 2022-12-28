@@ -35,7 +35,6 @@ def InsertEdges(vertexList):
 
     for vertex in vertexList:
 
-        
         x = vertex.x
         y = vertex.y
         
@@ -70,7 +69,20 @@ def InsertEdges(vertexList):
                         dataChars[startx +min(x,conX)+j+1] = "-"
 
                 data[-y+starty] = "".join(dataChars)
+                
+def insertVertex(beaconlist):
 
+    global data
+    for beacon in beaconlist:
+
+        x = beacon.x
+        y = beacon.y
+        id = beacon.id
+        alterMap(int(x),-int(y),str(id))
+
+    with open ("myrob.map","w") as file:
+        file.writelines(data)
+        
 def alterMap(posx,line,newData):
     global data
     startx = round(49/2)
@@ -87,7 +99,7 @@ def alterMap(posx,line,newData):
             
     data[line+starty] = "".join(dataChars)
     
-def generate(vertexlist):
+def generate(vertexlist,beaconlist):
     
     global data 
     
@@ -97,6 +109,7 @@ def generate(vertexlist):
     outMap.close()
 
     # insertEdges()
+    insertVertex(beaconlist)
     InsertEdges(vertexlist)
     alterMap(0,0,"I")
     with open ("myrob.map","w") as file:

@@ -162,60 +162,77 @@ def InsertBeaconsInVertexList(vertexList, beaconList):
     for beacon in beaconList:
         print(beacon)
         beacon.update(vertexList)
-    vertexList = appendBeacons(vertexList, beaconList,len(vertexList))
+    vertexList, newids = appendBeacons(vertexList, beaconList,len(vertexList))
 
 
     print(beaconList)
     print(vertexList)
+    print(newids)
     for vertex in vertexList:
-        if vertex.connects == {}:
+        if vertex.id in newids:
+            print(vertex)
+            {print(f"{bcolors.RED}vertex{vertex}{bcolors.RESET}")}
             x = vertex.x
             y = vertex.y
             dir = [beacon.direction for beacon in beaconList if (beacon.x,beacon.y) == (x,y)][0]
 
             if dir == "up" or dir == "down":
+                print("updown",vertex)
+                
                 vertex.edges["up"] = 1
                 vertex.edges["down"] = 1
                 
-                while vertex.connects == {}:
+                while vertex.connects.get("up") is None:
                     print("Searching for up")
                     y = y+2
                     for vertex2 in vertexList:
+                        print(f"{bcolors.GREEN}vertex2:{bcolors.RESET} {vertex2}")
                         if (vertex2.x,vertex2.y) == (x,y):
                             vertex.connects["up"] = vertex2.id
                             vertex2.connects["down"] = vertex.id
                             break
                 x = vertex.x
                 y = vertex.y
-                while len(vertex.connects) == 1:
+                while len(vertex.connects).get("down") is None:
                     print("Searching for down")
                     y = y-2
                     for vertex2 in vertexList:
+                        print(f"{bcolors.GREEN}vertex2:{bcolors.RESET} {vertex2}")
+
                         if (vertex2.x,vertex2.y) == (x,y):
                             vertex.connects["down"] = vertex2.id
                             vertex2.connects["up"] = vertex.id
                             break
                 
             else:
+                print( "leftright",vertex)
                 vertex.edges["left"] = 1
                 vertex.edges["right"] = 1
                 
-                while vertex.connects == {}:
+                while vertex.connects.get("left") == None:
                     print("Searching for left")
                     x = x-2
                     for vertex2 in vertexList:
+                        print(f"{bcolors.GREEN}vertex2:{bcolors.RESET} {vertex2}")
+
+                        
                         if (vertex2.x,vertex2.y) == (x,y):
                             vertex.connects["left"] = vertex2.id
                             vertex2.connects["right"] = vertex.id
                             break
                 x = vertex.x
                 y = vertex.y
-                while len(vertex.connects) == 1:
+                while vertex.connects.get("right") == None:
                     print("Searching for right")
                     x = x+2
                     for vertex2 in vertexList:
+                        print(f"{bcolors.GREEN}vertex2:{bcolors.RESET} {vertex2}")
+
+                        
                         if (vertex2.x,vertex2.y) == (x,y):
                             vertex.connects["right"] = vertex2.id
                             vertex2.connects["left"] = vertex.id
                             break
+    for beacon in beaconList:
+        beacon.vertex = [vertex for vertex in vertexList if (vertex.x,vertex.y) == (beacon.x,beacon.y)][0]
     return vertexList

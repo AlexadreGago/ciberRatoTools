@@ -82,10 +82,11 @@ RIGHTHANDRULE = {
 
 class Beacon():
     """ A beacon in the map """    
-    def __init__(self,x=-1,y=-1,vertexList=[],id=-1):
+    def __init__(self,x=-1,y=-1,vertexList=[],id=-1,direction = None):
         self.x = x
         self.y = y
         self.id = id
+        self.direction = direction
         if (x,y) in vertexList:
             self.isVertex = True
             self.vertex = vertexList[vertexList.index((x,y))]
@@ -95,19 +96,19 @@ class Beacon():
         self.connects = {}
         
     def update(self, vertexList: list) -> None:
-        """fucking nigger"""
+        """fucking """
         print("at beacon update")
         for vertex in vertexList:
             if vertex == [self.x, self.y]:
                 self.isVertex = True
                 self.vertex = vertexList[vertexList.index((self.x,self.y))]
+
             
     def __repr__(self) -> str:
-        return f"Beacon at ({self.x},{self.y}, id: {self.id}, isVertex: {self.isVertex}, vertex: {self.vertex})"
+        return f"Beacon at ({self.x},{self.y}, id: {self.id}, isVertex: {self.isVertex}, vertex: {self.vertex}),  connects: {self.connects},  direction: {self.direction}\n"
     
     def __eq__(self, o) -> bool:
         return (self.x, self.y) == (o.x, o.y)
-    
     
 class Vertex():
     """A vertex in the graph
@@ -149,7 +150,7 @@ class Vertex():
         else:
             return (self.x, self.y) == (o[0], o[1])
 
-    def update(self, robot_dir, vlist = [],turns=[], visited=False, connects = None):
+    def update(self, robot_dir,turns=[], visited=False, connects = None, vlist = [], force = False):
         """updates the possible turns of this vertex
         #! in the future, update the connects as well
         #! also estamos a deixar dar overwrite sempre que passa por um vertice, nao sei se e bom
@@ -172,12 +173,20 @@ class Vertex():
         if turns:
             for turn in turns:
                 edge = TURNSMAP[robot_dir][turn]
-                if self.edges[edge] == 0:
+                if force:
                     self.edges[edge] = 1
+                else:
+                    if self.edges[edge] == 0:
+                        self.edges[edge] = 1
+                        
         if connects is not None:
             self.connects[INVERSEDIRECTIONMAP[robot_dir]] = connects.id
             connects.connects[robot_dir] = self.id
-            return
+        
+        if self.connects != {} and self.connects == {k: self.id for k in self.connects}:
+            breakpoint()
+
+        return
     def updateEdges(self, edges):
         for edge in edges:
             self.edges[edge] = 1
@@ -198,6 +207,7 @@ class Vertex():
             if self.edges[direction] == 1
         ]
 
+
     
 #vertexlist is pickle
 with open("vertexList.pickle", "rb") as f:
@@ -206,23 +216,4 @@ with open("vertexList.pickle", "rb") as f:
 #beaconlist is pickle
 with open("beaconList.pickle", "rb") as f:
     beaconlist = pickle.load(f)
-
-print(vertexlist)
-print([vertex for vertex in vertexlist if 0 in vertex.connects.values()])
-
-for vertex in vertexlist:
-    if vertex.id in vertex.connects.values():
-        print(vertex)
-        vertex.connects = {k : v for k, v in vertex.connects.items() if v != vertex.id}
-        for vertex2 in vertexlist:
-            for connect in vertex2.connects:
-                if vertex2.connects[connect] == vertex.id:
-                    vertex.connects[INVERSEDIRECTIONMAP[connect]] = vertex2.id
-                    
-print(vertexlist[15])
-print([vertex for vertex in vertexlist if 0 in vertex.connects.values()])
-
-print(search.directionqueue(vertexlist, 35, 15))
-
-CreateMap.generate(vertexlist)
-
+print(search.get_path(vertexlist, beaconlist))

@@ -111,6 +111,7 @@ class Beacon():
             if vertex == [self.x, self.y]:
                 self.isVertex = True
                 self.vertex = vertexList[vertexList.index((self.x,self.y))]
+
             
     def __repr__(self) -> str:
         return f"Beacon at ({self.x},{self.y}, id: {self.id}, isVertex: {self.isVertex}, vertex: {self.vertex}),  connects: {self.connects},  direction: {self.direction}\n"
@@ -186,10 +187,15 @@ class Vertex():
                 else:
                     if self.edges[edge] == 0:
                         self.edges[edge] = 1
+                        
         if connects is not None:
             self.connects[INVERSEDIRECTIONMAP[robot_dir]] = connects.id
             connects.connects[robot_dir] = self.id
-            return
+        
+        if self.connects != {} and self.connects == {k: self.id for k in self.connects}:
+            breakpoint()
+
+        return
     def updateEdges(self, edges):
         for edge in edges:
             self.edges[edge] = 1
@@ -359,8 +365,7 @@ class MyRob(CRobLinkAngs):
             
         print("detectedDirections",detectedDirections)
         if not detectedDirections:
-            self.finish()
-            sys.exit()
+            self.end()
         else:
             if detectedDirections == ["right","left"] or detectedDirections == ["up","down"]:
                 print("LINEEEE")
@@ -472,7 +477,8 @@ class MyRob(CRobLinkAngs):
             None
         """
         id = currVertex.id
-        print("targetVertex",targetVertex)
+        print(f"{bcolors.RED}targetVertex: {bcolors.RESET} {targetVertex}")
+        print(f"{bcolors.RED}currentVertex: {bcolors.RESET} {currVertex}")
         if targetVertex == None:
 
             unexploredvertexes = [ 
@@ -487,10 +493,11 @@ class MyRob(CRobLinkAngs):
                 key = lambda x: len(x),
                 default=[]
             )
-            print(directionqueue)
+            print(f"{bcolors.RED}directionqueue: {bcolors.RESET} {directionqueue}")
+            print(f"{bcolors.RED}unexploredvertexes: {bcolors.RESET} {unexploredvertexes}")
+
             self.pathfindingMovements = directionqueue
         else:
-            print(self.vertexList)
             directionqueue = search.directionqueue(self.vertexList, id, targetVertex)
             print(directionqueue)
             self.pathfindingMovements = directionqueue
@@ -584,12 +591,12 @@ class MyRob(CRobLinkAngs):
                 leftCounter["ponta"] += int(self.measures.lineSensor[0])
                 leftCounter["lado"] += int(self.measures.lineSensor[1])
                 # ?------------------------------LOGGING----------------------------
-                # print(
-                #     f"\t{bcolors.PURPLE}first call{bcolors.RESET} {self.measures.lineSensor}")
-                # print(
-                #     f"\t\t{bcolors.CYAN}rightCounter: {rightCounter}{bcolors.RESET}")
-                # print(
-                #     f"\t\t{bcolors.CYAN}leftCounter: {leftCounter}{bcolors.RESET}")
+                print(
+                    f"\t{bcolors.PURPLE}first call{bcolors.RESET} {self.measures.lineSensor}")
+                print(
+                    f"\t\t{bcolors.CYAN}rightCounter: {rightCounter}{bcolors.RESET}")
+                print(
+                    f"\t\t{bcolors.CYAN}leftCounter: {leftCounter}{bcolors.RESET}")
                 # ?-----------------------------------------------------------------
                 self.move("stop")
 
@@ -600,12 +607,12 @@ class MyRob(CRobLinkAngs):
                 leftCounter["ponta"] += int(self.measures.lineSensor[0])
                 leftCounter["lado"] += int(self.measures.lineSensor[1])
                 # ?------------------------------LOGGING----------------------------
-                # print(
-                #     f"\t{bcolors.PURPLE}second call{bcolors.RESET} {self.measures.lineSensor}")
-                # print(
-                #     f"\t\t{bcolors.CYAN}rightCounter: {rightCounter}{bcolors.RESET}")
-                # print(
-                #     f"\t\t{bcolors.CYAN}leftCounter: {leftCounter}{bcolors.RESET}")
+                print(
+                    f"\t{bcolors.PURPLE}second call{bcolors.RESET} {self.measures.lineSensor}")
+                print(
+                    f"\t\t{bcolors.CYAN}rightCounter: {rightCounter}{bcolors.RESET}")
+                print(
+                    f"\t\t{bcolors.CYAN}leftCounter: {leftCounter}{bcolors.RESET}")
 
                 if sum(rightCounter.values()) > 2 and rightCounter["ponta"] > 1:
                     print(f"\t{bcolors.GREEN}right turn{bcolors.RESET}")
@@ -632,11 +639,11 @@ class MyRob(CRobLinkAngs):
                     leftCounter["ponta"] += int(self.measures.lineSensor[0])
                     leftCounter["lado"] += int(self.measures.lineSensor[1])
                     # ?------------------------------LOGGING----------------------------
-                    # print(f"\t{bcolors.PURPLE}third call{bcolors.RESET} {self.measures.lineSensor}")
-                    # print(
-                    #     f"\t\t{bcolors.CYAN}rightCounter: {rightCounter}{bcolors.RESET}")
-                    # print(
-                    #     f"\t\t{bcolors.CYAN}leftCounter: {leftCounter}{bcolors.RESET}")
+                    print(f"\t{bcolors.PURPLE}third call{bcolors.RESET} {self.measures.lineSensor}")
+                    print(
+                        f"\t\t{bcolors.CYAN}rightCounter: {rightCounter}{bcolors.RESET}")
+                    print(
+                        f"\t\t{bcolors.CYAN}leftCounter: {leftCounter}{bcolors.RESET}")
                     # ?-----------------------------------------------------------------
                     if sum(rightCounter.values()) > 2 and rightCounter["ponta"] > 1:
                         print(f"\t{bcolors.GREEN}right turn{bcolors.RESET}")
@@ -646,12 +653,10 @@ class MyRob(CRobLinkAngs):
                         turns.append("left")
 
                     if turns:
-
-                            
                         self.getVertex().update(self.direction, turns=turns)
                         self.state = "decide"
-
                         return
+                    
         # nothing found
         # ?------------------------------LOGGING----------------------------
         print(f"{bcolors.YELLOW}Noise{bcolors.RESET}")
@@ -661,9 +666,11 @@ class MyRob(CRobLinkAngs):
     def decide(self):
         """decides which way to go"""
         vertex = self.getVertex()
+        availableTurns = None
         # ?------------------------------LOGGING----------------------------
         print(f"{bcolors.PURPLE}decide{bcolors.RESET}")
         print(vertex)
+        print("direction",self.direction)
         # ?-----------------------------------------------------------------
         # first position the robot in the center of the vertex
         self.detectedSensorsCount = [0, 0, 0, 0, 0, 0, 0, 0] 
@@ -671,6 +678,8 @@ class MyRob(CRobLinkAngs):
             pass
 
         if self.prevVertex:
+            if self.prevVertex.id == vertex.id:
+                breakpoint()
             vertex.update( self.direction, visited=True, connects=(self.prevVertex) )    
             self.prevVertex.update( INVERSEDIRECTIONMAP[self.direction], connects=(vertex),visited=True)
         else:
@@ -706,14 +715,14 @@ class MyRob(CRobLinkAngs):
                     chosenDirection = self.pathfindingMovements.pop(0)
                 else:
                     #!try fix corrupt vertexlist
-                    for vertex in self.vertexList:
-                        if vertex.id in vertex.connects.values():
+                    for vertex_iter in self.vertexList:
+                        if vertex_iter.id in vertex_iter.connects.values():
                             
-                            vertex.connects = {k : v for k, v in vertex.connects.items() if v != vertex.id}
+                            vertex_iter.connects = {k : v for k, v in vertex_iter.connects.items() if v != vertex_iter.id}
                             for vertex2 in self.vertexList:
                                 for connect in vertex2.connects:
-                                    if vertex2.connects[connect] == vertex.id:
-                                        vertex.connects[INVERSEDIRECTIONMAP[connect]] = vertex2.id
+                                    if vertex2.connects[connect] == vertex_iter.id:
+                                        vertex_iter.connects[INVERSEDIRECTIONMAP[connect]] = vertex2.id
                     self.findPath(vertex)
                     if self.pathfindingMovements:
                         chosenDirection = self.pathfindingMovements.pop(0)
@@ -738,15 +747,16 @@ class MyRob(CRobLinkAngs):
                             self.finishing = True
 
                             #save vertex list to pickle
-                            with open("vertexList.pickle", "wb") as f:
-                                pickle.dump(self.vertexList, f)
-                            #save beacon list to pickle
-                            with open("beaconList.pickle", "wb") as f:
-                                pickle.dump(self.beaconList, f)
+
                             
                             # if self.pathfindingMovements:
                             chosenDirection = self.pathfindingMovements.pop(0)
-
+        print("DECIDE CHOSE DIRECTION", chosenDirection)
+        print("AVAILABLE TURNS", availableTurns)
+        print("PREV VERTEX", self.prevVertex)
+        print("VERTEX", vertex)
+        print("PATHFINDING MOVEMENTS", self.pathfindingMovements)
+            
         while not self.orient(chosenDirection): #!eventually reqwrite this
             pass
         
@@ -772,7 +782,12 @@ class MyRob(CRobLinkAngs):
         self.vertexList = FinalBeaconConnections.InsertBeaconsInVertexList(self.vertexList, self.beaconList)
         print(self.vertexList)
         print(self.beaconList)
-        CreateMap.generate(self.vertexList)
+        with open("vertexList.pickle", "wb") as f:
+            pickle.dump(self.vertexList, f)
+        #save beacon list to pickle
+        with open("beaconList.pickle", "wb") as f:
+            pickle.dump(self.beaconList, f)
+        CreateMap.generate(self.vertexList,self.beaconList)
         # c3path.Generate_path_file(self.vertexList)
         self.finish()
         sys.exit()
@@ -826,18 +841,20 @@ class MyRob(CRobLinkAngs):
         else:
             #! WE CAN TAKE MORE CONCLUSION WITH THESE SENSORS
             # ? ------------------------------LOGGING----------------------------
-            # print("-----------------END ADJUST FORWARD-------------------")
-            # print(
-            #     f"\t{bcolors.WHITE}{bcolors.UNDERLINE}Detected Sensors in Adjust Forward{bcolors.RESET} {self.detectedSensorsCount} \n")
-            # for i in range(7):
-            #     print(self.detectedSensorsCount[i] /
-            #           self.detectedSensorsCount[7], '\n')
-            # print("Detected front?:", ((self.detectedSensorsCount[2] + self.detectedSensorsCount[3] + self.detectedSensorsCount[4] )/ (self.detectedSensorsCount[7]*3) )> 0.6)
-            # print("Detected Right?(sensor6+7/total):",
-            #       (self.detectedSensorsCount[6]+self.detectedSensorsCount[5]) / (2*self.detectedSensorsCount[7]))
-            # print("Detected Left?(sensor0+1/total):",
-            #       (self.detectedSensorsCount[0]+self.detectedSensorsCount[1]) / (2*self.detectedSensorsCount[7]))
+            print("-----------------END ADJUST FORWARD-------------------")
+            print(
+                f"\t{bcolors.WHITE}{bcolors.UNDERLINE}Detected Sensors in Adjust Forward{bcolors.RESET} {self.detectedSensorsCount} \n")
+            for i in range(7):
+                print(self.detectedSensorsCount[i] /
+                      self.detectedSensorsCount[7], '\n')
+            print("Detected front?:", ((self.detectedSensorsCount[2] + self.detectedSensorsCount[3] + self.detectedSensorsCount[4] )/ (self.detectedSensorsCount[7]*3) )> 0.6)
+            print("Detected Right?(sensor6+7/total):",
+                  (self.detectedSensorsCount[6]+self.detectedSensorsCount[5]) / (2*self.detectedSensorsCount[7]))
+            print("Detected Left?(sensor0+1/total):",
+                  (self.detectedSensorsCount[0]+self.detectedSensorsCount[1]) / (2*self.detectedSensorsCount[7]))
             # print("------------------------------------")
+            print("direction",self.direction)
+            
             # ?-----------------------------------------------------------------
             if not self.finishing:
                 if (self.detectedSensorsCount[2] + self.detectedSensorsCount[3] + self.detectedSensorsCount[4]) / (self.detectedSensorsCount[7]*3 )> 0.6:
@@ -906,7 +923,10 @@ class MyRob(CRobLinkAngs):
     
     def wander(self):
         # ? ------------------------------LOGGING----------------------------
-        # print(f"{bcolors.PURPLE}Wander{bcolors.RESET} {self.measures.lineSensor}")
+        print(f"{bcolors.PURPLE}Wander{bcolors.RESET} {self.measures.lineSensor}")
+        print("LineSensors",self.measures.lineSensor)
+        print("direction",self.direction)
+        
         # print(f"\t{bcolors.CYAN}{self.x}{bcolors.RESET}")
         # print(f"\t{bcolors.CYAN}{self.y}{bcolors.RESET}")
         # print(f"\t{bcolors.RED}Allow Turns:{bcolors.RESET}")
