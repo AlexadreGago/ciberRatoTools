@@ -37,8 +37,8 @@ case $challenge in
         rm -f *.path *.map  # do not remove this line
         # how to call agent for challenge 4
         python3 artemis.py -h "$host" -p "$pos" -r "$robname" -f "$outfile"
-        mv your_mapfile $outfile.map
-        mv your_pathfile $outfile.path
+        mv myrob.map $outfile.map
+        mv myrob.path $outfile.path
         ;;
 esac
 

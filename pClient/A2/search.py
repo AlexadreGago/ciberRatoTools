@@ -89,14 +89,12 @@ def pairwise(iterable):
 
 def get_path(vertexList, beaconlist):
     beacon_ids = [beacon.id for beacon in beaconlist if beacon.id != 0]
-    print(beacon_ids)
     permutations = itertools.permutations(beacon_ids)
     optimal=[]
     min = 9999999
-    i=0
+
     for permutation in list(permutations):
-        print(i, permutation)
-        i+=1
+
         distance=0
         permutation = list(permutation)
         path = [ beaconlist[ [beaconlist.index(beacon) for beacon in beaconlist if beacon.id ==0][0] ].vertex.id ]
@@ -127,4 +125,3 @@ if __name__ == "__main__":
         vertexlist = pickle.load(inp)
         
     graph= build_graph(vertexlist)
-    print(directionqueue(vertexlist, 1, 15))

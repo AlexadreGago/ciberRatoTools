@@ -95,7 +95,6 @@ class Beacon():
         
     def update(self, vertexList: list) -> None:
         """fucking """
-        print("at beacon update")
         for vertex in vertexList:
             if vertex == [self.x, self.y]:
                 self.isVertex = True
@@ -248,9 +247,6 @@ if __name__ == "__main__":
 #beaconlist is pickle
     with open("beaconList.pickle", "rb") as f:
         beaconlist = pickle.load(f)
-    
-    print(beaconlist)
-    print(vertexlist)
 
     Generate_path_file(vertexlist, beaconlist)
 
