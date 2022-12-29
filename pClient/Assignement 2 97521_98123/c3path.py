@@ -1,4 +1,3 @@
-import pickle
 import itertools
 from search import get_path
 class bcolors:

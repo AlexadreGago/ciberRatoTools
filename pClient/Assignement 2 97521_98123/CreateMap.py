@@ -1,6 +1,4 @@
 import itertools
-
-
 global data
 
 def createMap():

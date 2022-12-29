@@ -5,7 +5,6 @@ from math import *
 import xml.etree.ElementTree as ET
 import itertools
 import search
-import time
 import c3path
 import CreateMap
 import FinalBeaconConnections

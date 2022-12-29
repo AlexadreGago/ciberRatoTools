@@ -1,5 +1,3 @@
-from unicodedata import name
-import pickle
 import itertools
 
 class Vertex():

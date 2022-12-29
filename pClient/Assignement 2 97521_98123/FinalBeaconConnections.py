@@ -1,6 +1,5 @@
 import itertools
 import search
-import time
 
 class bcolors:
     """class for colors in the terminal
