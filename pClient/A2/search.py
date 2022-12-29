@@ -93,27 +93,33 @@ def get_path(vertexList, beaconlist):
     permutations = itertools.permutations(beacon_ids)
     optimal=[]
     min = 9999999
+    i=0
     for permutation in list(permutations):
+        print(i, permutation)
+        i+=1
         distance=0
         permutation = list(permutation)
-        path = [0]
-        permutation.insert(0, beaconlist[ [beaconlist.index(beacon) for beacon in beaconlist if beacon.id == 0][0] ].vertex.id)
-        permutation.append(beaconlist[ [beaconlist.index(beacon) for beacon in beaconlist if beacon.id == 0][0] ].vertex.id)
-
+        path = [ beaconlist[ [beaconlist.index(beacon) for beacon in beaconlist if beacon.id ==0][0] ].vertex.id ]
+       
+        permutation.insert(0, 0)
+        permutation.append(0)
 
         for pair in pairwise(permutation):
             graph=build_graph(vertexList)
             start = beaconlist[ [beaconlist.index(beacon) for beacon in beaconlist if beacon.id == pair[0]][0] ].vertex.id
             end = beaconlist[ [beaconlist.index(beacon) for beacon in beaconlist if beacon.id == pair[1]][0] ].vertex.id
             path.extend(dijkstra(graph, start, end)[1:])
-       
+
+
         for vertex_a, vertex_b in pairwise(path):
             distance += hammond_distance(vertexList, vertex_a, vertex_b)
-        print(permutation, distance)
+        
         if distance < min:
             min = distance
-            optimal = permutation
-    return optimal, min
+            optimal = path
+            beacons = permutation
+    return optimal, min, beacons
+
 
 
 if __name__ == "__main__":

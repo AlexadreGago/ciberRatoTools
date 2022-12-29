@@ -109,9 +109,9 @@ def generate(vertexlist,beaconlist):
     outMap.close()
 
     # insertEdges()
+    alterMap(0,0,"I")
     insertVertex(beaconlist)
     InsertEdges(vertexlist)
-    alterMap(0,0,"I")
     with open ("myrob.map","w") as file:
         file.writelines(data)
 
